@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useCurrentUserRoles } from "@/hooks/useRoles";
+import { hasAccess } from "@/config/rbac";
 import Index from "./pages/Index";
 import StockPage from "./pages/StockPage";
 import CampaignsPage from "./pages/CampaignsPage";
@@ -22,6 +24,8 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { data: userRoles = [] } = useCurrentUserRoles();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -35,6 +39,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/giris" replace />;
+  
+  if (!hasAccess(userRoles, location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 
