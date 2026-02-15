@@ -5,12 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 export interface Campaign {
   id: string;
   name: string;
-  type: "x_al_y_ode" | "x_alana_y_indirim" | "yuzde_indirim";
+  type: "x_al_y_ode" | "x_alana_y_indirim" | "yuzde_indirim" | "ozel_fiyat";
   buy_quantity: number;
   pay_quantity: number;
   discount_percent: number;
   source_buy_quantity: number;
   target_discount_percent: number;
+  special_price: number;
+  special_price_min_quantity: number;
   start_date: string;
   end_date: string;
   is_active: boolean;
@@ -35,25 +37,38 @@ const typeLabels: Record<string, string> = {
   x_al_y_ode: "X Al Y Öde",
   x_alana_y_indirim: "X Alana Y'de İndirim",
   yuzde_indirim: "Yüzde İndirim",
+  ozel_fiyat: "Özel Fiyat",
+};
+
+const typeIcons: Record<string, string> = {
+  x_al_y_ode: "🎁",
+  x_alana_y_indirim: "🔗",
+  yuzde_indirim: "💰",
+  ozel_fiyat: "⭐",
 };
 
 export function getCampaignTypeLabel(type: string) {
   return typeLabels[type] || type;
 }
 
+export function getCampaignTypeIcon(type: string) {
+  return typeIcons[type] || "📦";
+}
+
 export function getCampaignDetails(c: Campaign): string {
   if (c.type === "x_al_y_ode") return `${c.buy_quantity} Al ${c.pay_quantity} Öde`;
   if (c.type === "x_alana_y_indirim") return `${c.source_buy_quantity} Al → %${c.target_discount_percent} İndirim`;
   if (c.type === "yuzde_indirim") return `%${c.discount_percent} İndirim`;
+  if (c.type === "ozel_fiyat") return `${c.special_price_min_quantity}+ adet → ₺${c.special_price}`;
   return "";
 }
 
-export function getCampaignStatus(c: Campaign): { label: string; variant: "default" | "secondary" | "outline" } {
+export function getCampaignStatus(c: Campaign): { label: string; variant: "default" | "secondary" | "outline"; color: string } {
   const today = new Date().toISOString().split("T")[0];
-  if (!c.is_active) return { label: "Pasif", variant: "secondary" };
-  if (c.end_date < today) return { label: "Süresi Dolmuş", variant: "secondary" };
-  if (c.start_date > today) return { label: "Planlandı", variant: "outline" };
-  return { label: "Aktif", variant: "default" };
+  if (!c.is_active) return { label: "Pasif", variant: "secondary", color: "text-muted-foreground" };
+  if (c.end_date < today) return { label: "Süresi Dolmuş", variant: "secondary", color: "text-destructive" };
+  if (c.start_date > today) return { label: "Planlandı", variant: "outline", color: "text-info" };
+  return { label: "Aktif", variant: "default", color: "text-success" };
 }
 
 export function useCampaigns() {
@@ -103,7 +118,7 @@ export function useCreateCampaign() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
-      toast({ title: "Kampanya oluşturuldu" });
+      toast({ title: "Kampanya oluşturuldu ✓" });
     },
     onError: () => {
       toast({ title: "Hata", description: "Kampanya oluşturulamadı.", variant: "destructive" });
@@ -138,7 +153,7 @@ export function useUpdateCampaign() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
-      toast({ title: "Kampanya güncellendi" });
+      toast({ title: "Kampanya güncellendi ✓" });
     },
     onError: () => {
       toast({ title: "Hata", description: "Güncelleme başarısız.", variant: "destructive" });

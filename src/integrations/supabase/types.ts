@@ -64,6 +64,8 @@ export type Database = {
           name: string
           pay_quantity: number | null
           source_buy_quantity: number | null
+          special_price: number | null
+          special_price_min_quantity: number | null
           start_date: string
           target_discount_percent: number | null
           type: Database["public"]["Enums"]["campaign_type"]
@@ -79,6 +81,8 @@ export type Database = {
           name: string
           pay_quantity?: number | null
           source_buy_quantity?: number | null
+          special_price?: number | null
+          special_price_min_quantity?: number | null
           start_date: string
           target_discount_percent?: number | null
           type: Database["public"]["Enums"]["campaign_type"]
@@ -94,6 +98,8 @@ export type Database = {
           name?: string
           pay_quantity?: number | null
           source_buy_quantity?: number | null
+          special_price?: number | null
+          special_price_min_quantity?: number | null
           start_date?: string
           target_discount_percent?: number | null
           type?: Database["public"]["Enums"]["campaign_type"]
@@ -363,7 +369,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      campaign_type: "x_al_y_ode" | "x_alana_y_indirim" | "yuzde_indirim"
+      campaign_type:
+        | "x_al_y_ode"
+        | "x_alana_y_indirim"
+        | "yuzde_indirim"
+        | "ozel_fiyat"
       stock_movement_type: "in" | "out" | "adjustment"
     }
     CompositeTypes: {
@@ -492,7 +502,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      campaign_type: ["x_al_y_ode", "x_alana_y_indirim", "yuzde_indirim"],
+      campaign_type: [
+        "x_al_y_ode",
+        "x_alana_y_indirim",
+        "yuzde_indirim",
+        "ozel_fiyat",
+      ],
       stock_movement_type: ["in", "out", "adjustment"],
     },
   },
