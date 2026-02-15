@@ -156,6 +156,7 @@ const CashRegisterPage = () => {
   const [splitCard, setSplitCard] = useState("");
 
   const [paymentModal, setPaymentModal] = useState<string | null>(null);
+  const [cashReceived, setCashReceived] = useState("");
 
   // Loyalty state
   const [loyaltySearch, setLoyaltySearch] = useState("");
@@ -967,7 +968,10 @@ const CashRegisterPage = () => {
               <Button
                 className="h-14 flex-col gap-0.5 touch-manipulation shadow-sm"
                 disabled={cart.length === 0 || completeSale.isPending}
-                onClick={() => handlePayment("cash")}
+                onClick={() => {
+                  setPaymentModal("cash");
+                  setCashReceived("");
+                }}
               >
                 <Banknote className="h-5 w-5" />
                 <span className="text-[11px]">Nakit</span>
@@ -976,7 +980,7 @@ const CashRegisterPage = () => {
                 variant="outline"
                 className="h-14 flex-col gap-0.5 touch-manipulation"
                 disabled={cart.length === 0 || completeSale.isPending}
-                onClick={() => handlePayment("card")}
+                onClick={() => setPaymentModal("card")}
               >
                 <CreditCard className="h-5 w-5" />
                 <span className="text-[11px]">Kart</span>
@@ -1229,7 +1233,124 @@ const CashRegisterPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Success overlay */}
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={!!paymentModal} onOpenChange={() => setPaymentModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {paymentModal === "cash" ? (
+                <Banknote className="h-5 w-5 text-primary" />
+              ) : (
+                <CreditCard className="h-5 w-5 text-primary" />
+              )}
+              {paymentModal === "cash" ? "Nakit Ödeme" : "Kartla Ödeme"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Total display */}
+            <div className="rounded-xl bg-muted/50 p-4 text-center space-y-1">
+              <p className="text-xs text-muted-foreground">Ödenecek Tutar</p>
+              <p className="text-3xl font-black text-primary tracking-tight">
+                ₺{fmt(grandTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {totalItemCount} ürün
+              </p>
+            </div>
+
+            {/* Cash received input - only for cash payments */}
+            {paymentModal === "cash" && (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium">Alınan Tutar (₺)</Label>
+                  <Input
+                    type="number"
+                    className="mt-1.5 h-14 text-2xl font-bold text-center"
+                    placeholder={fmt(grandTotal)}
+                    value={cashReceived}
+                    onChange={(e) => setCashReceived(e.target.value)}
+                    min={0}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Quick cash buttons */}
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(() => {
+                    const rounded = Math.ceil(grandTotal);
+                    const quickAmounts = [
+                      rounded,
+                      Math.ceil(grandTotal / 5) * 5,
+                      Math.ceil(grandTotal / 10) * 10,
+                      Math.ceil(grandTotal / 50) * 50,
+                    ];
+                    // Deduplicate and sort
+                    const unique = [...new Set(quickAmounts)].sort((a, b) => a - b).slice(0, 4);
+                    return unique.map((amount) => (
+                      <Button
+                        key={amount}
+                        variant={cashReceived === String(amount) ? "default" : "outline"}
+                        className="h-10 text-sm font-bold"
+                        onClick={() => setCashReceived(String(amount))}
+                      >
+                        ₺{fmt(amount)}
+                      </Button>
+                    ));
+                  })()}
+                </div>
+
+                {/* Change calculation */}
+                {cashReceived && parseFloat(cashReceived) >= grandTotal && (
+                  <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-center space-y-1 animate-in fade-in-50 zoom-in-95 duration-200">
+                    <p className="text-xs text-muted-foreground font-medium">Para Üstü</p>
+                    <p className="text-4xl font-black text-primary tracking-tight">
+                      ₺{fmt(parseFloat(cashReceived) - grandTotal)}
+                    </p>
+                  </div>
+                )}
+
+                {cashReceived && parseFloat(cashReceived) > 0 && parseFloat(cashReceived) < grandTotal && (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-center">
+                    <p className="text-sm text-destructive font-medium">
+                      ₺{fmt(grandTotal - parseFloat(cashReceived))} eksik!
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Card payment info */}
+            {paymentModal === "card" && (
+              <div className="rounded-xl border bg-muted/30 p-4 text-center">
+                <CreditCard className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Kartla ödeme işlemini onaylıyor musunuz?
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPaymentModal(null)}>
+              İptal
+            </Button>
+            <Button
+              className="gap-2"
+              onClick={() => {
+                handlePayment(paymentModal!);
+              }}
+              disabled={
+                completeSale.isPending ||
+                (paymentModal === "cash" && cashReceived !== "" && parseFloat(cashReceived) < grandTotal)
+              }
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Ödemeyi Onayla
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300">
