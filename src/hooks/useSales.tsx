@@ -10,6 +10,7 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   discount: number;
+  manualDiscount: number;
   campaignId?: string | null;
   campaignName?: string | null;
   total: number;
@@ -37,7 +38,6 @@ export function useCompleteSale() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // Create sale
       const { data: sale, error: saleError } = await supabase
         .from("sales")
         .insert({
@@ -51,7 +51,6 @@ export function useCompleteSale() {
         .single();
       if (saleError) throw saleError;
 
-      // Create sale items
       const saleItems = items.map((item) => ({
         sale_id: sale.id,
         product_id: item.productId,
@@ -59,7 +58,7 @@ export function useCompleteSale() {
         barcode: item.barcode,
         quantity: item.quantity,
         unit_price: item.unitPrice,
-        discount: item.discount,
+        discount: item.discount + item.manualDiscount,
         total: item.total,
         campaign_id: item.campaignId || null,
         campaign_name: item.campaignName || null,
@@ -70,7 +69,6 @@ export function useCompleteSale() {
         .insert(saleItems);
       if (itemsError) throw itemsError;
 
-      // Update stock for each item
       for (const item of items) {
         const { data: product } = await supabase
           .from("products")
