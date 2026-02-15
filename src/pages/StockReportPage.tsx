@@ -43,9 +43,11 @@ interface ProductSummary {
 function buildProductSummary(movements: StockMovement[]): ProductSummary[] {
   const map = new Map<string, ProductSummary>();
 
+  // movements are ordered by created_at DESC, so first occurrence per product is the latest
   for (const m of movements) {
     const key = m.product_id;
     if (!map.has(key)) {
+      // First occurrence = latest movement (desc order) → use its new_stock as currentStock
       map.set(key, {
         name: m.products?.name || "-",
         barcode: m.products?.barcode || "-",
@@ -60,19 +62,25 @@ function buildProductSummary(movements: StockMovement[]): ProductSummary[] {
     if (m.movement_type === "in") s.totalIn += m.quantity;
     else if (m.movement_type === "out") s.totalOut += m.quantity;
     else s.totalAdjustment += m.quantity;
-    // Track latest stock
-    if (new Date(m.created_at) > new Date()) s.currentStock = m.new_stock;
-    s.currentStock = m.new_stock; // movements ordered desc, first is latest
+    // Do NOT overwrite currentStock - it's already set to the latest movement's new_stock
   }
 
-  // Calculate net and fix currentStock (first movement is latest due to desc order)
   const result: ProductSummary[] = [];
-  for (const [key, s] of map) {
+  for (const [, s] of map) {
     s.net = s.totalIn - s.totalOut;
     result.push(s);
   }
 
   return result.sort((a, b) => a.name.localeCompare(b.name, "tr"));
+}
+
+// Turkish character transliteration for jsPDF (helvetica doesn't support Turkish glyphs)
+function trText(text: string): string {
+  const map: Record<string, string> = {
+    'ş': 's', 'Ş': 'S', 'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G',
+    'ı': 'i', 'İ': 'I', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
+  };
+  return text.replace(/[şŞçÇğĞıİöÖüÜ]/g, (c) => map[c] || c);
 }
 
 function generatePDF(
@@ -101,23 +109,23 @@ function generatePDF(
   doc.setTextColor(180, 180, 180);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text("ERP Stok Yönetim Sistemi", margin, 20);
+  doc.text(trText("ERP Stok Yönetim Sistemi"), margin, 20);
 
   // Report title on right
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("STOK HAREKET RAPORU", pageWidth - margin, 14, { align: "right" });
+  doc.text(trText("STOK HAREKET RAPORU"), pageWidth - margin, 14, { align: "right" });
 
   doc.setTextColor(180, 180, 180);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  const dateRange = `${format(new Date(startDate), "dd MMMM yyyy", { locale: tr })} — ${format(new Date(endDate), "dd MMMM yyyy", { locale: tr })}`;
+  const dateRange = trText(`${format(new Date(startDate), "dd MMMM yyyy", { locale: tr })} — ${format(new Date(endDate), "dd MMMM yyyy", { locale: tr })}`);
   doc.text(dateRange, pageWidth - margin, 21, { align: "right" });
 
   doc.setTextColor(120, 120, 120);
   doc.setFontSize(7);
-  doc.text(`Oluşturulma: ${format(new Date(), "dd.MM.yyyy HH:mm")}`, pageWidth - margin, 27, { align: "right" });
+  doc.text(trText(`Olusturulma: ${format(new Date(), "dd.MM.yyyy HH:mm")}`), pageWidth - margin, 27, { align: "right" });
 
   // --- Summary stats boxes ---
   const boxY = 38;
@@ -125,8 +133,8 @@ function generatePDF(
   const boxW = (pageWidth - margin * 2 - 20) / 3;
   const boxes = [
     { label: "Toplam Hareket", value: String(stats.totalMovements), color: [245, 158, 11] as [number, number, number] },
-    { label: "Toplam Giriş", value: `${stats.totalIn} adet`, color: [34, 197, 94] as [number, number, number] },
-    { label: "Toplam Çıkış", value: `${stats.totalOut} adet`, color: [239, 68, 68] as [number, number, number] },
+    { label: trText("Toplam Giriş"), value: `${stats.totalIn} adet`, color: [34, 197, 94] as [number, number, number] },
+    { label: trText("Toplam Çıkış"), value: `${stats.totalOut} adet`, color: [239, 68, 68] as [number, number, number] },
   ];
 
   boxes.forEach((box, i) => {
@@ -154,16 +162,18 @@ function generatePDF(
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("ÜRÜN BAZLI STOK ÖZET", margin, tableStartY);
+  doc.text(trText("URUN BAZLI STOK OZET"), margin, tableStartY);
 
   autoTable(doc, {
     startY: tableStartY + 4,
     margin: { left: margin, right: margin },
-    head: [["#", "Barkod", "Ürün Adı", "Giriş", "Çıkış", "Düzeltme", "Net Hareket", "Güncel Stok"]],
+    head: [[
+      "#", "Barkod", trText("Urun Adi"), trText("Giris"), trText("Cikis"), trText("Duzeltme"), "Net Hareket", trText("Guncel Stok")
+    ]],
     body: summary.map((s, i) => [
       String(i + 1),
       s.barcode,
-      s.name,
+      trText(s.name),
       String(s.totalIn),
       String(s.totalOut),
       String(s.totalAdjustment),
@@ -202,7 +212,7 @@ function generatePDF(
       doc.setTextColor(130, 130, 130);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("TekelPOS ERP — Stok Hareket Raporu", margin, pageHeight - 5);
+      doc.text(trText("TekelPOS ERP — Stok Hareket Raporu"), margin, pageHeight - 5);
       doc.text(`Sayfa ${data.pageNumber}`, pageWidth - margin, pageHeight - 5, { align: "right" });
     },
   });
@@ -217,10 +227,10 @@ function generatePDF(
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.text("TOPLAM", margin + 5, finalY + 10.5);
-    doc.text(`Giriş: ${stats.totalIn}`, margin + 100, finalY + 10.5);
-    doc.text(`Çıkış: ${stats.totalOut}`, margin + 145, finalY + 10.5);
+    doc.text(trText(`Giris: ${stats.totalIn}`), margin + 100, finalY + 10.5);
+    doc.text(trText(`Cikis: ${stats.totalOut}`), margin + 145, finalY + 10.5);
     doc.text(`Net: ${stats.totalIn - stats.totalOut >= 0 ? "+" : ""}${stats.totalIn - stats.totalOut}`, margin + 190, finalY + 10.5);
-    doc.text(`${summary.length} ürün`, pageWidth - margin - 5, finalY + 10.5, { align: "right" });
+    doc.text(trText(`${summary.length} urun`), pageWidth - margin - 5, finalY + 10.5, { align: "right" });
   }
 
   if (printMode) {
