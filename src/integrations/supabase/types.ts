@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_products: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          product_id: string
+          role: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          role?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_products_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          buy_quantity: number | null
+          created_at: string
+          discount_percent: number | null
+          end_date: string
+          id: string
+          is_active: boolean
+          name: string
+          pay_quantity: number | null
+          source_buy_quantity: number | null
+          start_date: string
+          target_discount_percent: number | null
+          type: Database["public"]["Enums"]["campaign_type"]
+          updated_at: string
+        }
+        Insert: {
+          buy_quantity?: number | null
+          created_at?: string
+          discount_percent?: number | null
+          end_date: string
+          id?: string
+          is_active?: boolean
+          name: string
+          pay_quantity?: number | null
+          source_buy_quantity?: number | null
+          start_date: string
+          target_discount_percent?: number | null
+          type: Database["public"]["Enums"]["campaign_type"]
+          updated_at?: string
+        }
+        Update: {
+          buy_quantity?: number | null
+          created_at?: string
+          discount_percent?: number | null
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          pay_quantity?: number | null
+          source_buy_quantity?: number | null
+          start_date?: string
+          target_discount_percent?: number | null
+          type?: Database["public"]["Enums"]["campaign_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -173,6 +260,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      campaign_type: "x_al_y_ode" | "x_alana_y_indirim" | "yuzde_indirim"
       stock_movement_type: "in" | "out" | "adjustment"
     }
     CompositeTypes: {
@@ -301,6 +389,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      campaign_type: ["x_al_y_ode", "x_alana_y_indirim", "yuzde_indirim"],
       stock_movement_type: ["in", "out", "adjustment"],
     },
   },
