@@ -21,6 +21,7 @@ import {
   Users,
   LogOut,
   User,
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ const navItems = [
   { label: "Kasa", path: "/kasa", icon: Wallet },
   { label: "Raporlar", path: "/raporlar", icon: BarChart3 },
   { label: "Stok Raporu", path: "/stok-raporu", icon: ClipboardList },
+  { label: "Sadakat", path: "/sadakat", icon: Heart },
   { label: "Personel", path: "/personel", icon: Users },
   { label: "Ayarlar", path: "/ayarlar", icon: Settings },
 ];
