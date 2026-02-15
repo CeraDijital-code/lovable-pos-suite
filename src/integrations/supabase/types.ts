@@ -578,6 +578,60 @@ export type Database = {
           },
         ]
       }
+      store_settings: {
+        Row: {
+          created_at: string
+          currency_symbol: string
+          id: string
+          logo_dark_url: string | null
+          logo_light_url: string | null
+          min_stock_alert: boolean
+          points_per_tl: number
+          receipt_footer: string
+          receipt_header: string
+          store_address: string
+          store_name: string
+          store_phone: string
+          tax_number: string
+          tax_office: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_symbol?: string
+          id?: string
+          logo_dark_url?: string | null
+          logo_light_url?: string | null
+          min_stock_alert?: boolean
+          points_per_tl?: number
+          receipt_footer?: string
+          receipt_header?: string
+          store_address?: string
+          store_name?: string
+          store_phone?: string
+          tax_number?: string
+          tax_office?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_symbol?: string
+          id?: string
+          logo_dark_url?: string | null
+          logo_light_url?: string | null
+          min_stock_alert?: boolean
+          points_per_tl?: number
+          receipt_footer?: string
+          receipt_header?: string
+          store_address?: string
+          store_name?: string
+          store_phone?: string
+          tax_number?: string
+          tax_office?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
