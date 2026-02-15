@@ -1,62 +1,148 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import {
-  Package,
-  Tags,
-  Wallet,
-  TrendingUp,
-  ShoppingCart,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
+  Package, Tags, Wallet, TrendingUp, ShoppingCart, AlertTriangle,
+  ArrowUpRight, ArrowDownRight, Heart, ChevronDown, ChevronUp,
+  CreditCard, Banknote, Users, Star, Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useDashboardStats, useRecentSales, useLowStockProducts, type DashboardSale } from "@/hooks/useDashboard";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
 
-const stats = [
-  {
-    title: "Günlük Satış",
-    value: "₺12,450",
-    change: "+12.5%",
-    trend: "up" as const,
-    icon: ShoppingCart,
-  },
-  {
-    title: "Toplam Ürün",
-    value: "1,284",
-    change: "+23",
-    trend: "up" as const,
-    icon: Package,
-  },
-  {
-    title: "Aktif Kampanya",
-    value: "8",
-    change: "+2",
-    trend: "up" as const,
-    icon: Tags,
-  },
-  {
-    title: "Kasa Bakiyesi",
-    value: "₺45,200",
-    change: "-3.2%",
-    trend: "down" as const,
-    icon: Wallet,
-  },
-];
+const paymentIcons: Record<string, typeof CreditCard> = {
+  cash: Banknote,
+  card: CreditCard,
+  points: Star,
+};
 
-const recentSales = [
-  { id: 1, product: "Efes Pilsen 500ml", qty: 3, total: "₺180", time: "14:32" },
-  { id: 2, product: "Jack Daniel's 700ml", qty: 1, total: "₺850", time: "14:28" },
-  { id: 3, product: "Marlboro Red", qty: 2, total: "₺120", time: "14:15" },
-  { id: 4, product: "Chivas Regal 12", qty: 1, total: "₺1,200", time: "13:55" },
-  { id: 5, product: "Tuborg Gold 330ml 6'lı", qty: 2, total: "₺360", time: "13:40" },
-];
+const paymentLabels: Record<string, string> = {
+  cash: "Nakit",
+  card: "Kart",
+  points: "Puan",
+};
 
-const lowStockItems = [
-  { name: "Absolut Vodka 700ml", stock: 3, min: 10 },
-  { name: "Parliament Aqua Blue", stock: 5, min: 20 },
-  { name: "Red Bull 250ml", stock: 8, min: 24 },
-];
+function SaleRow({ sale }: { sale: DashboardSale }) {
+  const [open, setOpen] = useState(false);
+  const PayIcon = paymentIcons[sale.payment_method] || ShoppingCart;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="flex w-full items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50 text-left">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <PayIcon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold">#{sale.sale_number}</p>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  {paymentLabels[sale.payment_method] || sale.payment_method}
+                </Badge>
+                {sale.loyalty_customers && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
+                    <Heart className="h-2.5 w-2.5" />
+                    {sale.loyalty_customers.full_name}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sale.sale_items?.length || 0} kalem • {format(new Date(sale.created_at), "HH:mm", { locale: tr })}
+                {sale.points_earned > 0 && (
+                  <span className="text-success ml-2">+{sale.points_earned} puan</span>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right">
+              <span className="text-sm font-bold">₺{Number(sale.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</span>
+              {sale.discount > 0 && (
+                <p className="text-[10px] text-destructive">-₺{Number(sale.discount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</p>
+              )}
+            </div>
+            {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-12 mr-3 mb-2 mt-1 rounded-lg border bg-muted/30 divide-y">
+          {sale.sale_items?.map((item) => (
+            <div key={item.id} className="flex items-center justify-between px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium truncate">{item.product_name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">{item.barcode}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0 text-xs">
+                <span className="text-muted-foreground">{item.quantity} × ₺{Number(item.unit_price).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</span>
+                {item.campaign_name && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
+                    {item.campaign_name}
+                  </Badge>
+                )}
+                <span className="font-semibold w-16 text-right">₺{Number(item.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          ))}
+          {sale.loyalty_customers && (
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+              <Heart className="h-3 w-3 text-primary" />
+              <span>{sale.loyalty_customers.full_name} • {sale.loyalty_customers.phone}</span>
+              {sale.points_redeemed > 0 && (
+                <Badge variant="outline" className="text-[9px] border-destructive/30 text-destructive">
+                  -{sale.points_redeemed} puan
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 const Dashboard = () => {
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: recentSales, isLoading: salesLoading } = useRecentSales();
+  const [lowStockPage, setLowStockPage] = useState(0);
+  const { data: lowStock, isLoading: lowStockLoading } = useLowStockProducts(lowStockPage);
+
+  const statCards = [
+    {
+      title: "Günlük Satış",
+      value: statsLoading ? "..." : `₺${(stats?.dailySales || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
+      change: statsLoading ? "" : `${Number(stats?.dailySalesChange) >= 0 ? "+" : ""}${stats?.dailySalesChange}%`,
+      subtext: statsLoading ? "" : `${stats?.dailySalesCount} işlem`,
+      trend: Number(stats?.dailySalesChange) >= 0 ? "up" as const : "down" as const,
+      icon: ShoppingCart,
+    },
+    {
+      title: "Toplam Ürün",
+      value: statsLoading ? "..." : String(stats?.productCount || 0),
+      change: "",
+      trend: "up" as const,
+      icon: Package,
+    },
+    {
+      title: "Aktif Kampanya",
+      value: statsLoading ? "..." : String(stats?.campaignCount || 0),
+      change: "",
+      trend: "up" as const,
+      icon: Tags,
+    },
+    {
+      title: "Sadakat Müşterileri",
+      value: statsLoading ? "..." : String(stats?.customerCount || 0),
+      change: statsLoading ? "" : `${(stats?.totalPoints || 0).toLocaleString("tr-TR")} puan`,
+      trend: "up" as const,
+      icon: Heart,
+    },
+  ];
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -70,29 +156,28 @@ const Dashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
+          {statCards.map((stat) => (
             <Card key={stat.title} className="stat-card">
               <CardContent className="p-0">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">{stat.title}</p>
                     <p className="text-2xl font-bold">{stat.value}</p>
-                    <div className="flex items-center gap-1">
-                      {stat.trend === "up" ? (
-                        <ArrowUpRight className="h-3.5 w-3.5 text-success" />
-                      ) : (
-                        <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
-                      )}
-                      <span
-                        className={`text-xs font-medium ${
-                          stat.trend === "up"
-                            ? "text-success"
-                            : "text-destructive"
-                        }`}
-                      >
-                        {stat.change}
-                      </span>
-                    </div>
+                    {stat.change && (
+                      <div className="flex items-center gap-1">
+                        {stat.trend === "up" ? (
+                          <ArrowUpRight className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+                        )}
+                        <span className={`text-xs font-medium ${stat.trend === "up" ? "text-success" : "text-destructive"}`}>
+                          {stat.change}
+                        </span>
+                      </div>
+                    )}
+                    {(stat as any).subtext && (
+                      <p className="text-[10px] text-muted-foreground">{(stat as any).subtext}</p>
+                    )}
                   </div>
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <stat.icon className="h-5 w-5 text-primary" />
@@ -114,62 +199,105 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {recentSales.map((sale) => (
-                  <div
-                    key={sale.id}
-                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
-                        <ShoppingCart className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{sale.product}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {sale.qty} adet • {sale.time}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold">{sale.total}</span>
-                  </div>
-                ))}
-              </div>
+              {salesLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : !recentSales?.length ? (
+                <div className="flex flex-col items-center py-8 text-muted-foreground">
+                  <ShoppingCart className="h-10 w-10 mb-2 opacity-30" />
+                  <p className="text-sm">Henüz satış kaydı yok</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentSales.map((sale) => (
+                    <SaleRow key={sale.id} sale={sale} />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Low Stock Alert */}
           <Card className="lg:col-span-2">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                Düşük Stok Uyarıları
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  Düşük Stok Uyarıları
+                  {lowStock && lowStock.totalCount > 0 && (
+                    <Badge variant="outline" className="badge-warning text-[10px] ml-1">
+                      {lowStock.totalCount}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {lowStockItems.map((item) => (
-                  <div
-                    key={item.name}
-                    className="rounded-lg border border-warning/20 bg-warning/5 p-3"
-                  >
-                    <p className="text-sm font-medium">{item.name}</p>
-                    <div className="mt-1.5 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        Kalan: <strong className="text-warning">{item.stock}</strong> / Min: {item.min}
-                      </span>
+              {lowStockLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : !lowStock?.items.length ? (
+                <div className="flex flex-col items-center py-8 text-muted-foreground">
+                  <Package className="h-10 w-10 mb-2 opacity-30" />
+                  <p className="text-sm">Tüm ürünler yeterli stokta</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {lowStock.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-warning/20 bg-warning/5 p-3"
+                    >
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{item.barcode}</p>
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          Kalan: <strong className="text-warning">{item.stock}</strong> / Min: {item.min_stock}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-warning transition-all"
+                          style={{
+                            width: `${Math.min((item.stock / item.min_stock) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-warning transition-all"
-                        style={{
-                          width: `${Math.min((item.stock / item.min) * 100, 100)}%`,
-                        }}
-                      />
+                  ))}
+
+                  {/* Pagination */}
+                  {lowStock.totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-[10px] text-muted-foreground">
+                        {lowStockPage * 5 + 1}-{Math.min((lowStockPage + 1) * 5, lowStock.totalCount)} / {lowStock.totalCount}
+                      </p>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={lowStockPage === 0}
+                          onClick={() => setLowStockPage((p) => p - 1)}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={lowStockPage >= lowStock.totalPages - 1}
+                          onClick={() => setLowStockPage((p) => p + 1)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
