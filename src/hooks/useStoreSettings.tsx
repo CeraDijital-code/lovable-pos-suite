@@ -15,6 +15,7 @@ export interface StoreSettings {
   receipt_footer: string;
   currency_symbol: string;
   points_per_tl: number;
+  point_value_tl: number;
   min_stock_alert: boolean;
   created_at: string;
   updated_at: string;

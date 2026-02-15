@@ -586,6 +586,7 @@ export type Database = {
           logo_dark_url: string | null
           logo_light_url: string | null
           min_stock_alert: boolean
+          point_value_tl: number
           points_per_tl: number
           receipt_footer: string
           receipt_header: string
@@ -603,6 +604,7 @@ export type Database = {
           logo_dark_url?: string | null
           logo_light_url?: string | null
           min_stock_alert?: boolean
+          point_value_tl?: number
           points_per_tl?: number
           receipt_footer?: string
           receipt_header?: string
@@ -620,6 +622,7 @@ export type Database = {
           logo_dark_url?: string | null
           logo_light_url?: string | null
           min_stock_alert?: boolean
+          point_value_tl?: number
           points_per_tl?: number
           receipt_footer?: string
           receipt_header?: string
