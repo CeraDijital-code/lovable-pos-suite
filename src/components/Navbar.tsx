@@ -1,6 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentUserRoles } from "@/hooks/useRoles";
+import { hasAccess } from "@/config/rbac";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +42,9 @@ const navItems = [
 export function Navbar() {
   const location = useLocation();
   const { profile, user, signOut } = useAuth();
+  const { data: userRoles = [] } = useCurrentUserRoles();
+
+  const visibleNavItems = navItems.filter((item) => hasAccess(userRoles, item.path));
 
   const getInitials = (name?: string | null) => {
     if (!name) return "?";
@@ -66,7 +71,7 @@ export function Navbar() {
 
         {/* Navigation */}
         <nav className="hidden lg:flex items-center gap-0.5">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
