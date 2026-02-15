@@ -76,6 +76,17 @@ function applyCampaigns(
           bestCampaignName = campaign.name;
         }
       }
+
+      if (campaign.type === "ozel_fiyat" && item.quantity >= campaign.special_price_min_quantity) {
+        const normalTotal = item.unitPrice * item.quantity;
+        const specialTotal = campaign.special_price * item.quantity;
+        const disc = normalTotal - specialTotal;
+        if (disc > 0 && disc > bestDiscount) {
+          bestDiscount = disc;
+          bestCampaignId = campaign.id;
+          bestCampaignName = campaign.name;
+        }
+      }
     }
 
     const total = item.unitPrice * item.quantity - bestDiscount;
