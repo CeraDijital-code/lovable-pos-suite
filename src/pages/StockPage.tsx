@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Package, Plus, Search, Filter, Edit, Trash2, PackagePlus, PackageMinus, Loader2, Tag,
+  Package, Plus, Search, Filter, Edit, Trash2, PackagePlus, PackageMinus, Loader2, Tag, ImagePlus,
 } from "lucide-react";
 import {
   useProducts, useCategories, useCreateProduct, useUpdateProduct,
   useDeleteProduct, useUpdateStock, useCreateCategory, useDeleteCategory,
 } from "@/hooks/useProducts";
+import { supabase } from "@/integrations/supabase/client";
 
 const StockPage = () => {
   const [search, setSearch] = useState("");
@@ -40,10 +41,31 @@ const StockPage = () => {
   // Form state
   const [form, setForm] = useState({
     barcode: "", name: "", category_id: "", price: "", cost_price: "",
-    stock: "", min_stock: "", unit: "Adet",
+    stock: "", min_stock: "", unit: "Adet", image_url: "",
   });
   const [stockForm, setStockForm] = useState({ quantity: "", note: "" });
   const [newCategory, setNewCategory] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadProductImage = async (file: File): Promise<string> => {
+    const ext = file.name.split(".").pop();
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleImageSelect = (file: File | null) => {
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const { data: products, isLoading } = useProducts(search || undefined, categoryFilter && categoryFilter !== "all" ? categoryFilter : undefined);
   const { data: categories } = useCategories();
@@ -55,38 +77,60 @@ const StockPage = () => {
   const deleteCategory = useDeleteCategory();
 
   const resetForm = () => {
-    setForm({ barcode: "", name: "", category_id: "", price: "", cost_price: "", stock: "", min_stock: "", unit: "Adet" });
+    setForm({ barcode: "", name: "", category_id: "", price: "", cost_price: "", stock: "", min_stock: "", unit: "Adet", image_url: "" });
+    setImageFile(null);
+    setImagePreview(null);
   };
 
-  const handleAdd = () => {
-    createProduct.mutate({
-      barcode: form.barcode,
-      name: form.name,
-      category_id: form.category_id || null,
-      price: parseFloat(form.price) || 0,
-      cost_price: parseFloat(form.cost_price) || 0,
-      stock: parseInt(form.stock) || 0,
-      min_stock: parseInt(form.min_stock) || 0,
-      unit: form.unit,
-    }, {
-      onSuccess: () => { setShowAddProduct(false); resetForm(); },
-    });
+  const handleAdd = async () => {
+    setUploadingImage(true);
+    try {
+      let image_url: string | undefined;
+      if (imageFile) {
+        image_url = await uploadProductImage(imageFile);
+      }
+      createProduct.mutate({
+        barcode: form.barcode,
+        name: form.name,
+        category_id: form.category_id || null,
+        price: parseFloat(form.price) || 0,
+        cost_price: parseFloat(form.cost_price) || 0,
+        stock: parseInt(form.stock) || 0,
+        min_stock: parseInt(form.min_stock) || 0,
+        unit: form.unit,
+        ...(image_url ? { image_url } : {}),
+      } as any, {
+        onSuccess: () => { setShowAddProduct(false); resetForm(); },
+      });
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!selectedProduct) return;
-    updateProduct.mutate({
-      id: selectedProduct.id,
-      barcode: form.barcode,
-      name: form.name,
-      category_id: form.category_id || null,
-      price: parseFloat(form.price) || 0,
-      cost_price: parseFloat(form.cost_price) || 0,
-      min_stock: parseInt(form.min_stock) || 0,
-      unit: form.unit,
-    }, {
-      onSuccess: () => { setShowEditProduct(false); setSelectedProduct(null); resetForm(); },
-    });
+    setUploadingImage(true);
+    try {
+      let image_url = form.image_url || undefined;
+      if (imageFile) {
+        image_url = await uploadProductImage(imageFile);
+      }
+      updateProduct.mutate({
+        id: selectedProduct.id,
+        barcode: form.barcode,
+        name: form.name,
+        category_id: form.category_id || null,
+        price: parseFloat(form.price) || 0,
+        cost_price: parseFloat(form.cost_price) || 0,
+        min_stock: parseInt(form.min_stock) || 0,
+        unit: form.unit,
+        ...(image_url !== undefined ? { image_url } : {}),
+      } as any, {
+        onSuccess: () => { setShowEditProduct(false); setSelectedProduct(null); resetForm(); },
+      });
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleStockUpdate = () => {
@@ -112,7 +156,10 @@ const StockPage = () => {
       stock: String(product.stock),
       min_stock: String(product.min_stock),
       unit: product.unit,
+      image_url: product.image_url || "",
     });
+    setImagePreview(product.image_url || null);
+    setImageFile(null);
     setShowEditProduct(true);
   };
 
@@ -228,6 +275,7 @@ const StockPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12"></TableHead>
                     <TableHead>Barkod</TableHead>
                     <TableHead>Ürün Adı</TableHead>
                     <TableHead>Kategori</TableHead>
@@ -240,6 +288,15 @@ const StockPage = () => {
                 <TableBody>
                   {products.map((product) => (
                     <TableRow key={product.id}>
+                      <TableCell>
+                        <div className="h-10 w-10 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover rounded-md" />
+                          ) : (
+                            <Package className="h-4 w-4 text-muted-foreground/40" />
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{product.barcode}</TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>
@@ -346,11 +403,30 @@ const StockPage = () => {
                 <Input type="number" placeholder="0" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
               </div>
             </div>
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>Ürün Görseli</Label>
+              <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={(e) => handleImageSelect(e.target.files?.[0] || null)} />
+              <div className="flex items-center gap-3">
+                <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => imageInputRef.current?.click()}>
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Ürün" className="h-full w-full object-cover rounded-lg" />
+                  ) : (
+                    <ImagePlus className="h-6 w-6 text-muted-foreground/50" />
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  <p>Görsel yüklemek için tıklayın</p>
+                  <p>JPG, PNG, WebP (max 5MB)</p>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddProduct(false)}>İptal</Button>
-            <Button onClick={handleAdd} disabled={!form.barcode || !form.name || createProduct.isPending}>
-              {createProduct.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Button onClick={handleAdd} disabled={!form.barcode || !form.name || createProduct.isPending || uploadingImage}>
+              {(createProduct.isPending || uploadingImage) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Kaydet
             </Button>
           </DialogFooter>
@@ -415,11 +491,30 @@ const StockPage = () => {
               <Label>Minimum Stok</Label>
               <Input type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
             </div>
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>Ürün Görseli</Label>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageSelect(e.target.files?.[0] || null)} ref={(el) => { if (el) el.id = "edit-image-input"; }} />
+              <div className="flex items-center gap-3">
+                <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => document.getElementById("edit-image-input")?.click()}>
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Ürün" className="h-full w-full object-cover rounded-lg" />
+                  ) : (
+                    <ImagePlus className="h-6 w-6 text-muted-foreground/50" />
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  <p>Görsel yüklemek için tıklayın</p>
+                  <p>JPG, PNG, WebP (max 5MB)</p>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditProduct(false)}>İptal</Button>
-            <Button onClick={handleEdit} disabled={!form.barcode || !form.name || updateProduct.isPending}>
-              {updateProduct.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Button onClick={handleEdit} disabled={!form.barcode || !form.name || updateProduct.isPending || uploadingImage}>
+              {(updateProduct.isPending || uploadingImage) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Güncelle
             </Button>
           </DialogFooter>

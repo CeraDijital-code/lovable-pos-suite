@@ -129,6 +129,7 @@ export type Database = {
           cost_price: number
           created_at: string
           id: string
+          image_url: string | null
           is_active: boolean
           min_stock: number
           name: string
@@ -143,6 +144,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           min_stock?: number
           name: string
@@ -157,6 +159,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           min_stock?: number
           name?: string
@@ -205,6 +208,106 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sale_items: {
+        Row: {
+          barcode: string
+          campaign_id: string | null
+          campaign_name: string | null
+          created_at: string
+          discount: number
+          id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          sale_id: string
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          barcode: string
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          discount?: number
+          id?: string
+          product_id: string
+          product_name: string
+          quantity?: number
+          sale_id: string
+          total?: number
+          unit_price?: number
+        }
+        Update: {
+          barcode?: string
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          discount?: number
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          sale_id?: string
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          discount: number
+          id: string
+          payment_method: string
+          sale_number: number
+          subtotal: number
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          discount?: number
+          id?: string
+          payment_method?: string
+          sale_number?: number
+          subtotal?: number
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          discount?: number
+          id?: string
+          payment_method?: string
+          sale_number?: number
+          subtotal?: number
+          total?: number
         }
         Relationships: []
       }
