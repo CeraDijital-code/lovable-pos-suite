@@ -10,6 +10,7 @@ import StockPage from "./pages/StockPage";
 import CampaignsPage from "./pages/CampaignsPage";
 import CashRegisterPage from "./pages/CashRegisterPage";
 import ReportsPage from "./pages/ReportsPage";
+import StockReportPage from "./pages/StockReportPage";
 import SettingsPage from "./pages/SettingsPage";
 import StaffPage from "./pages/StaffPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -51,6 +52,7 @@ const AppRoutes = () => (
     <Route path="/kampanyalar" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
     <Route path="/kasa" element={<ProtectedRoute><CashRegisterPage /></ProtectedRoute>} />
     <Route path="/raporlar" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+    <Route path="/stok-raporu" element={<ProtectedRoute><StockReportPage /></ProtectedRoute>} />
     <Route path="/personel" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
     <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/ayarlar" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
