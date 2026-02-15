@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUserRoles } from "@/hooks/useRoles";
-import { hasAccess } from "@/config/rbac";
+import { useRolePermissions, hasAccess } from "@/config/rbac";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -24,6 +26,7 @@ import {
   LogOut,
   User,
   Heart,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,8 +46,10 @@ export function Navbar() {
   const location = useLocation();
   const { profile, user, signOut } = useAuth();
   const { data: userRoles = [] } = useCurrentUserRoles();
+  const { data: permissions = [] } = useRolePermissions();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleNavItems = navItems.filter((item) => hasAccess(userRoles, item.path));
+  const visibleNavItems = navItems.filter((item) => hasAccess(permissions, userRoles, item.path));
 
   const getInitials = (name?: string | null) => {
     if (!name) return "?";
@@ -54,22 +59,81 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="page-container flex h-16 items-center justify-between py-0">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Wallet className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold leading-none tracking-tight">
-              TekelPOS
-            </span>
-            <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
-              ERP Sistemi
-            </span>
-          </div>
-        </Link>
+        {/* Mobile menu trigger */}
+        <div className="flex items-center gap-2">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0">
+              <SheetHeader className="p-4 border-b">
+                <SheetTitle className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                    <Wallet className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
+                    <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
+                  </div>
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-3">
+                {visibleNavItems.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="absolute bottom-0 left-0 right-0 p-3 border-t">
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                      {getInitials(profile?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{profile?.full_name || "Kullanıcı"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" className="w-full justify-start gap-2 text-destructive mt-1" onClick={() => { setMobileOpen(false); signOut(); }}>
+                  <LogOut className="h-4 w-4" />
+                  Çıkış Yap
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
 
-        {/* Navigation */}
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+              <Wallet className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
+              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-0.5">
           {visibleNavItems.map((item) => {
             const isActive = location.pathname === item.path;
