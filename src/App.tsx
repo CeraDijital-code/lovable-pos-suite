@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import StockPage from "./pages/StockPage";
 import CampaignsPage from "./pages/CampaignsPage";
+import LoyaltyPage from "./pages/LoyaltyPage";
 import CashRegisterPage from "./pages/CashRegisterPage";
 import ReportsPage from "./pages/ReportsPage";
 import StockReportPage from "./pages/StockReportPage";
@@ -53,6 +54,7 @@ const AppRoutes = () => (
     <Route path="/kasa" element={<ProtectedRoute><CashRegisterPage /></ProtectedRoute>} />
     <Route path="/raporlar" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
     <Route path="/stok-raporu" element={<ProtectedRoute><StockReportPage /></ProtectedRoute>} />
+    <Route path="/sadakat" element={<ProtectedRoute><LoyaltyPage /></ProtectedRoute>} />
     <Route path="/personel" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
     <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/ayarlar" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

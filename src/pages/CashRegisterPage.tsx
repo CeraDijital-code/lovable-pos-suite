@@ -32,11 +32,26 @@ import {
   Wallet,
   ReceiptText,
   Sparkles,
+  Heart,
+  Star,
+  Phone,
+  X,
+  Shield,
 } from "lucide-react";
 import { useProducts, type Product } from "@/hooks/useProducts";
 import { useCampaigns, type CampaignWithProducts } from "@/hooks/useCampaigns";
 import { useCompleteSale, type CartItem } from "@/hooks/useSales";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  useLoyaltyCustomers,
+  useLoyaltyPointRules,
+  useEarnPoints,
+  useRedeemPoints,
+  useSendOtp,
+  useVerifyOtp,
+  calculateEarnedPoints,
+  type LoyaltyCustomer,
+} from "@/hooks/useLoyalty";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -117,6 +132,8 @@ function applyCampaigns(
 const fmt = (n: number) =>
   n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const POINTS_PER_TL_REDEEM = 100; // 100 puan = 1 TL
+
 const CashRegisterPage = () => {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [productSearch, setProductSearch] = useState("");
@@ -139,10 +156,29 @@ const CashRegisterPage = () => {
 
   const [paymentModal, setPaymentModal] = useState<string | null>(null);
 
+  // Loyalty state
+  const [loyaltySearch, setLoyaltySearch] = useState("");
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState<LoyaltyCustomer | null>(null);
+  const [loyaltySearchOpen, setLoyaltySearchOpen] = useState(false);
+  const [otpModal, setOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpDevCode, setOtpDevCode] = useState<string | null>(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState("");
+
   const { data: allProducts = [] } = useProducts();
   const { data: campaigns = [] } = useCampaigns();
   const completeSale = useCompleteSale();
   const { profile } = useAuth();
+
+  // Loyalty hooks
+  const { data: loyaltySearchResults = [] } = useLoyaltyCustomers(
+    loyaltySearch.length >= 2 ? loyaltySearch : undefined
+  );
+  const { data: pointRules = [] } = useLoyaltyPointRules();
+  const earnPoints = useEarnPoints();
+  const redeemPoints = useRedeemPoints();
+  const sendOtp = useSendOtp();
+  const verifyOtp = useVerifyOtp();
 
   const filteredProducts = useMemo(() => {
     if (!productSearch) return allProducts.filter((p) => p.is_active);
@@ -287,6 +323,12 @@ const CashRegisterPage = () => {
   const totalDiscount = campaignDiscount + manualDiscountTotal;
   const grandTotal = Math.max(0, subtotal - totalDiscount);
 
+  // Loyalty points calculation
+  const earnedPointsInfo = useMemo(() => {
+    if (!loyaltyCustomer || cart.length === 0) return null;
+    return calculateEarnedPoints(cart, pointRules, grandTotal);
+  }, [loyaltyCustomer, cart, pointRules, grandTotal]);
+
   const handlePayment = (method: string) => {
     if (cart.length === 0) return;
     completeSale.mutate(
@@ -298,9 +340,21 @@ const CashRegisterPage = () => {
         total: Math.round(grandTotal * 100) / 100,
       },
       {
-        onSuccess: () => {
+        onSuccess: (sale) => {
+          // Earn loyalty points if customer is selected
+          if (loyaltyCustomer && earnedPointsInfo && earnedPointsInfo.totalPoints > 0) {
+            earnPoints.mutate({
+              customerId: loyaltyCustomer.id,
+              saleId: sale.id,
+              points: earnedPointsInfo.totalPoints,
+              description: `Satış #${sale.sale_number} - ${earnedPointsInfo.breakdown.map(b => b.ruleName).join(", ")}`,
+              saleTotal: grandTotal,
+            });
+          }
           setCart([]);
           setPaymentModal(null);
+          setLoyaltyCustomer(null);
+          setLoyaltySearch("");
           setShowSuccess(true);
           setTimeout(() => setShowSuccess(false), 2000);
         },
@@ -314,6 +368,57 @@ const CashRegisterPage = () => {
     if (Math.abs(cashAmt + cardAmt - grandTotal) > 0.01) return;
     handlePayment(`split:cash=${cashAmt},card=${cardAmt}`);
     setSplitModal(false);
+  };
+
+  const handleStartRedeem = () => {
+    if (!loyaltyCustomer) return;
+    setPointsToRedeem("");
+    setOtpCode("");
+    setOtpDevCode(null);
+    sendOtp.mutate(
+      { phone: loyaltyCustomer.phone, purpose: "redeem" },
+      {
+        onSuccess: (data) => {
+          setOtpDevCode(data?.dev_code || null);
+          setOtpModal(true);
+        },
+      }
+    );
+  };
+
+  const handleVerifyAndRedeem = () => {
+    if (!loyaltyCustomer || !otpCode) return;
+    const pts = parseInt(pointsToRedeem) || 0;
+    if (pts <= 0 || pts > loyaltyCustomer.total_points) return;
+
+    verifyOtp.mutate(
+      { phone: loyaltyCustomer.phone, code: otpCode, purpose: "redeem" },
+      {
+        onSuccess: (data) => {
+          if (data.verified) {
+            redeemPoints.mutate({
+              customerId: loyaltyCustomer.id,
+              points: pts,
+              description: `Kasada puan harcama - ${pts} puan = ₺${fmt(pts / POINTS_PER_TL_REDEEM)}`,
+            });
+            setOtpModal(false);
+            // Apply discount to cart
+            const discountAmount = pts / POINTS_PER_TL_REDEEM;
+            setCart((prev) => {
+              const currentTotal = prev.reduce((s, i) => s + i.unitPrice * i.quantity - i.discount, 0);
+              const updated = prev.map((item) => {
+                const lineWeight = (item.unitPrice * item.quantity - item.discount) / currentTotal;
+                const itemDisc = discountAmount * lineWeight;
+                return { ...item, manualDiscount: (item.manualDiscount || 0) + Math.round(itemDisc * 100) / 100 };
+              });
+              return applyCampaigns(updated, campaigns);
+            });
+            // Refresh customer data
+            setLoyaltyCustomer({ ...loyaltyCustomer, total_points: loyaltyCustomer.total_points - pts });
+          }
+        },
+      }
+    );
   };
 
   const totalItemCount = cart.reduce((s, i) => s + i.quantity, 0);
@@ -490,6 +595,79 @@ const CashRegisterPage = () => {
 
         {/* RIGHT: Cart & Payment */}
         <div className="w-[400px] lg:w-[440px] flex flex-col border-l bg-card shrink-0">
+          {/* Loyalty customer bar */}
+          <div className="px-3 py-2 border-b bg-card/50 shrink-0">
+            {loyaltyCustomer ? (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+                <Heart className="h-4 w-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{loyaltyCustomer.full_name}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{loyaltyCustomer.phone}</span>
+                    <div className="flex items-center gap-0.5 text-amber-500">
+                      <Star className="h-3 w-3 fill-amber-500" />
+                      <span className="text-xs font-bold">{loyaltyCustomer.total_points}</span>
+                    </div>
+                  </div>
+                </div>
+                {loyaltyCustomer.total_points > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1 shrink-0"
+                    onClick={handleStartRedeem}
+                    disabled={sendOtp.isPending}
+                  >
+                    <Star className="h-3 w-3" />
+                    Puan Kullan
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => { setLoyaltyCustomer(null); setLoyaltySearch(""); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  className="pl-8 h-8 text-xs"
+                  placeholder="Sadakat müşterisi ara (telefon/isim)..."
+                  value={loyaltySearch}
+                  onChange={(e) => {
+                    setLoyaltySearch(e.target.value);
+                    setLoyaltySearchOpen(e.target.value.length >= 2);
+                  }}
+                  onFocus={() => loyaltySearch.length >= 2 && setLoyaltySearchOpen(true)}
+                />
+                {loyaltySearchOpen && loyaltySearchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover shadow-lg max-h-40 overflow-y-auto">
+                    {loyaltySearchResults.map((c) => (
+                      <button
+                        key={c.id}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        onClick={() => {
+                          setLoyaltyCustomer(c);
+                          setLoyaltySearch("");
+                          setLoyaltySearchOpen(false);
+                        }}
+                      >
+                        <Heart className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="truncate">{c.full_name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{c.phone}</span>
+                        <span className="text-xs font-bold text-amber-500">{c.total_points}p</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Cart header */}
           <div className="px-4 py-2.5 border-b shrink-0 flex items-center justify-between bg-card">
             <div className="flex items-center gap-2">
@@ -700,6 +878,18 @@ const CashRegisterPage = () => {
                   </span>
                 </div>
               )}
+              {/* Loyalty points earned preview */}
+              {loyaltyCustomer && earnedPointsInfo && earnedPointsInfo.totalPoints > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-1" style={{ color: "hsl(var(--primary))" }}>
+                    <Star className="h-3 w-3" />
+                    Kazanılacak Puan
+                  </span>
+                  <span className="font-semibold" style={{ color: "hsl(var(--primary))" }}>
+                    +{earnedPointsInfo.totalPoints}
+                  </span>
+                </div>
+              )}
               <Separator className="my-2" />
               <div className="flex justify-between items-baseline">
                 <span className="font-bold">TOPLAM</span>
@@ -898,6 +1088,79 @@ const CashRegisterPage = () => {
               }
             >
               Ödemeyi Tamamla
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OTP Modal for Point Redemption */}
+      <Dialog open={otpModal} onOpenChange={setOtpModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Puan Harcama - OTP Doğrulama
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl bg-muted/50 p-3 text-center">
+              <p className="text-xs text-muted-foreground">Müşteri</p>
+              <p className="font-semibold">{loyaltyCustomer?.full_name}</p>
+              <div className="flex items-center justify-center gap-1 mt-1 text-amber-500">
+                <Star className="h-4 w-4 fill-amber-500" />
+                <span className="font-bold">{loyaltyCustomer?.total_points} Puan</span>
+              </div>
+            </div>
+
+            <div>
+              <Label>Harcanacak Puan</Label>
+              <Input
+                type="number"
+                className="mt-1.5 h-11 text-lg font-bold text-center"
+                value={pointsToRedeem}
+                onChange={(e) => setPointsToRedeem(e.target.value)}
+                max={loyaltyCustomer?.total_points || 0}
+                min={1}
+                placeholder="0"
+              />
+              {pointsToRedeem && parseInt(pointsToRedeem) > 0 && (
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  = ₺{fmt(parseInt(pointsToRedeem) / POINTS_PER_TL_REDEEM)} indirim
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label>SMS ile gelen 6 haneli kod</Label>
+              <Input
+                className="mt-1.5 h-12 text-xl font-bold text-center tracking-[0.5em] font-mono"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                placeholder="••••••"
+              />
+              {otpDevCode && (
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  🧪 Test kodu: <span className="font-mono font-bold">{otpDevCode}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOtpModal(false)}>
+              İptal
+            </Button>
+            <Button
+              onClick={handleVerifyAndRedeem}
+              disabled={
+                otpCode.length !== 6 ||
+                !pointsToRedeem ||
+                parseInt(pointsToRedeem) <= 0 ||
+                parseInt(pointsToRedeem) > (loyaltyCustomer?.total_points || 0) ||
+                verifyOtp.isPending
+              }
+            >
+              Doğrula ve Harca
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -128,6 +128,173 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_customers: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string
+          qr_code: string
+          total_points: number
+          total_spent: number
+          total_visits: number
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone: string
+          qr_code: string
+          total_points?: number
+          total_spent?: number
+          total_visits?: number
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string
+          qr_code?: string
+          total_points?: number
+          total_spent?: number
+          total_visits?: number
+        }
+        Relationships: []
+      }
+      loyalty_point_rules: {
+        Row: {
+          bonus_points: number
+          created_at: string
+          end_date: string
+          id: string
+          is_active: boolean
+          min_quantity: number
+          name: string
+          points_per_tl: number
+          product_id: string | null
+          start_date: string
+          type: string
+          valid_days: string[] | null
+        }
+        Insert: {
+          bonus_points?: number
+          created_at?: string
+          end_date: string
+          id?: string
+          is_active?: boolean
+          min_quantity?: number
+          name: string
+          points_per_tl?: number
+          product_id?: string | null
+          start_date: string
+          type?: string
+          valid_days?: string[] | null
+        }
+        Update: {
+          bonus_points?: number
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          min_quantity?: number
+          name?: string
+          points_per_tl?: number
+          product_id?: string | null
+          start_date?: string
+          type?: string
+          valid_days?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_point_rules_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_transactions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          description: string
+          id: string
+          points: number
+          sale_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          description?: string
+          id?: string
+          points: number
+          sale_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          description?: string
+          id?: string
+          points?: number
+          sale_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      otp_verifications: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          phone: string
+          purpose: string
+          verified: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          phone: string
+          purpose?: string
+          verified?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone?: string
+          purpose?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string
@@ -290,7 +457,10 @@ export type Database = {
           created_by: string | null
           discount: number
           id: string
+          loyalty_customer_id: string | null
           payment_method: string
+          points_earned: number
+          points_redeemed: number
           sale_number: number
           subtotal: number
           total: number
@@ -300,7 +470,10 @@ export type Database = {
           created_by?: string | null
           discount?: number
           id?: string
+          loyalty_customer_id?: string | null
           payment_method?: string
+          points_earned?: number
+          points_redeemed?: number
           sale_number?: number
           subtotal?: number
           total?: number
@@ -310,12 +483,23 @@ export type Database = {
           created_by?: string | null
           discount?: number
           id?: string
+          loyalty_customer_id?: string | null
           payment_method?: string
+          points_earned?: number
+          points_redeemed?: number
           sale_number?: number
           subtotal?: number
           total?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_loyalty_customer_id_fkey"
+            columns: ["loyalty_customer_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {
