@@ -49,6 +49,7 @@ import {
   useRedeemPoints,
   useSendOtp,
   useVerifyOtp,
+  useFindCustomerByQr,
   calculateEarnedPoints,
   type LoyaltyCustomer,
 } from "@/hooks/useLoyalty";
@@ -179,6 +180,7 @@ const CashRegisterPage = () => {
   const redeemPoints = useRedeemPoints();
   const sendOtp = useSendOtp();
   const verifyOtp = useVerifyOtp();
+  const findByQr = useFindCustomerByQr();
 
   const filteredProducts = useMemo(() => {
     if (!productSearch) return allProducts.filter((p) => p.is_active);
@@ -596,73 +598,134 @@ const CashRegisterPage = () => {
         {/* RIGHT: Cart & Payment */}
         <div className="w-[400px] lg:w-[440px] flex flex-col border-l bg-card shrink-0">
           {/* Loyalty customer bar */}
-          <div className="px-3 py-2 border-b bg-card/50 shrink-0">
+          <div className="px-3 py-2.5 border-b shrink-0">
             {loyaltyCustomer ? (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
-                <Heart className="h-4 w-4 text-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{loyaltyCustomer.full_name}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{loyaltyCustomer.phone}</span>
-                    <div className="flex items-center gap-0.5 text-amber-500">
-                      <Star className="h-3 w-3 fill-amber-500" />
-                      <span className="text-xs font-bold">{loyaltyCustomer.total_points}</span>
+              <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10 p-3 space-y-2">
+                {/* Customer info row */}
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 ring-2 ring-primary/20">
+                    <Heart className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{loyaltyCustomer.full_name}</p>
+                    <p className="text-[11px] text-muted-foreground">{loyaltyCustomer.phone}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => { setLoyaltyCustomer(null); setLoyaltySearch(""); }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {/* Points & actions */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-3 rounded-lg bg-background/60 px-3 py-1.5">
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                      <span className="text-lg font-black text-amber-500">{loyaltyCustomer.total_points}</span>
+                      <span className="text-[10px] text-muted-foreground">puan</span>
+                    </div>
+                    <Separator orientation="vertical" className="h-4" />
+                    <div className="text-[10px] text-muted-foreground">
+                      <span className="font-medium">{loyaltyCustomer.total_visits}</span> ziyaret
                     </div>
                   </div>
+                  {loyaltyCustomer.total_points > 0 && (
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 shadow-sm"
+                      onClick={handleStartRedeem}
+                      disabled={sendOtp.isPending}
+                    >
+                      <Star className="h-3.5 w-3.5" />
+                      Puan Kullan
+                    </Button>
+                  )}
                 </div>
-                {loyaltyCustomer.total_points > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1 shrink-0"
-                    onClick={handleStartRedeem}
-                    disabled={sendOtp.isPending}
-                  >
-                    <Star className="h-3 w-3" />
-                    Puan Kullan
-                  </Button>
+                {/* Earned points preview */}
+                {earnedPointsInfo && earnedPointsInfo.totalPoints > 0 && cart.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg px-2.5 py-1.5">
+                    <Sparkles className="h-3 w-3" />
+                    <span>Bu alışverişten <span className="font-bold">+{earnedPointsInfo.totalPoints} puan</span> kazanacak</span>
+                  </div>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => { setLoyaltyCustomer(null); setLoyaltySearch(""); }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
               </div>
             ) : (
-              <div className="relative">
-                <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  className="pl-8 h-8 text-xs"
-                  placeholder="Sadakat müşterisi ara (telefon/isim)..."
-                  value={loyaltySearch}
-                  onChange={(e) => {
-                    setLoyaltySearch(e.target.value);
-                    setLoyaltySearchOpen(e.target.value.length >= 2);
-                  }}
-                  onFocus={() => loyaltySearch.length >= 2 && setLoyaltySearchOpen(true)}
-                />
+              <div className="space-y-2">
+                {/* Search / QR input */}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-8 pr-10 h-9 text-xs"
+                    placeholder="Müşteri ara (telefon, isim veya QR kod)..."
+                    value={loyaltySearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLoyaltySearch(val);
+                      setLoyaltySearchOpen(val.length >= 2);
+                      // Auto-detect QR code format and search
+                      if (val.startsWith("LYL-") && val.length > 10) {
+                        findByQr.mutate(val, {
+                          onSuccess: (customer) => {
+                            setLoyaltyCustomer(customer);
+                            setLoyaltySearch("");
+                            setLoyaltySearchOpen(false);
+                          },
+                        });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && loyaltySearch.startsWith("LYL-")) {
+                        findByQr.mutate(loyaltySearch, {
+                          onSuccess: (customer) => {
+                            setLoyaltyCustomer(customer);
+                            setLoyaltySearch("");
+                            setLoyaltySearchOpen(false);
+                          },
+                        });
+                      }
+                    }}
+                    onFocus={() => loyaltySearch.length >= 2 && setLoyaltySearchOpen(true)}
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <ScanBarcode className="h-4 w-4 text-primary/40" />
+                  </div>
+                </div>
+                {/* Search results dropdown */}
                 {loyaltySearchOpen && loyaltySearchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border bg-popover shadow-lg max-h-40 overflow-y-auto">
+                  <div className="rounded-xl border bg-popover shadow-xl max-h-44 overflow-y-auto">
                     {loyaltySearchResults.map((c) => (
                       <button
                         key={c.id}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-primary/5 transition-colors border-b last:border-0"
                         onClick={() => {
                           setLoyaltyCustomer(c);
                           setLoyaltySearch("");
                           setLoyaltySearchOpen(false);
                         }}
                       >
-                        <Heart className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="truncate">{c.full_name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">{c.phone}</span>
-                        <span className="text-xs font-bold text-amber-500">{c.total_points}p</span>
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-primary">{c.full_name.charAt(0)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium truncate">{c.full_name}</p>
+                          <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                          <span className="text-xs font-bold text-amber-500">{c.total_points}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
+                )}
+                {loyaltySearchOpen && loyaltySearch.length >= 2 && loyaltySearchResults.length === 0 && !findByQr.isPending && (
+                  <p className="text-[11px] text-muted-foreground text-center py-1">Müşteri bulunamadı</p>
+                )}
+                {findByQr.isPending && (
+                  <p className="text-[11px] text-primary text-center py-1">QR kod aranıyor...</p>
                 )}
               </div>
             )}
