@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { format, subDays, startOfDay, startOfWeek, startOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval } from "date-fns";
+import { tr } from "date-fns/locale";
 
 export interface DashboardSale {
   id: string;
@@ -26,6 +28,12 @@ export interface DashboardSale {
   }[];
 }
 
+export interface SalesChartData {
+  label: string;
+  total: number;
+  count: number;
+}
+
 export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard-stats"],
@@ -35,13 +43,11 @@ export function useDashboardStats() {
       const yesterdayStart = new Date(todayStart);
       yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-      // Today's sales
       const { data: todaySales } = await supabase
         .from("sales")
         .select("total")
         .gte("created_at", todayStart.toISOString());
 
-      // Yesterday's sales
       const { data: yesterdaySales } = await supabase
         .from("sales")
         .select("total")
@@ -54,13 +60,11 @@ export function useDashboardStats() {
         ? (((todayTotal - yesterdayTotal) / yesterdayTotal) * 100).toFixed(1)
         : todayTotal > 0 ? "+100" : "0";
 
-      // Product count
       const { count: productCount } = await supabase
         .from("products")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
 
-      // Active campaigns
       const today = new Date().toISOString().split("T")[0];
       const { count: campaignCount } = await supabase
         .from("campaigns")
@@ -69,13 +73,11 @@ export function useDashboardStats() {
         .lte("start_date", today)
         .gte("end_date", today);
 
-      // Loyalty customers
       const { count: customerCount } = await supabase
         .from("loyalty_customers")
         .select("*", { count: "exact", head: true })
         .eq("is_active", true);
 
-      // Total points in circulation
       const { data: pointsData } = await supabase
         .from("loyalty_customers")
         .select("total_points")
@@ -92,7 +94,76 @@ export function useDashboardStats() {
         totalPoints,
       };
     },
-    refetchInterval: 30000, // refresh every 30s
+    refetchInterval: 30000,
+  });
+}
+
+export function useSalesChart(period: "daily" | "weekly" | "monthly") {
+  return useQuery({
+    queryKey: ["dashboard-sales-chart", period],
+    queryFn: async () => {
+      const now = new Date();
+      let startDate: Date;
+      
+      if (period === "daily") {
+        startDate = subDays(now, 13); // last 14 days
+      } else if (period === "weekly") {
+        startDate = subDays(now, 7 * 8 - 1); // last 8 weeks
+      } else {
+        startDate = subDays(now, 365); // last 12 months
+      }
+
+      const { data, error } = await supabase
+        .from("sales")
+        .select("total, created_at")
+        .gte("created_at", startOfDay(startDate).toISOString())
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+
+      const sales = data || [];
+      const chartData: SalesChartData[] = [];
+
+      if (period === "daily") {
+        const days = eachDayOfInterval({ start: startDate, end: now });
+        for (const day of days) {
+          const dayStr = format(day, "yyyy-MM-dd");
+          const daySales = sales.filter(s => format(new Date(s.created_at), "yyyy-MM-dd") === dayStr);
+          chartData.push({
+            label: format(day, "dd MMM", { locale: tr }),
+            total: daySales.reduce((s, r) => s + Number(r.total), 0),
+            count: daySales.length,
+          });
+        }
+      } else if (period === "weekly") {
+        const weeks = eachWeekOfInterval({ start: startDate, end: now }, { weekStartsOn: 1 });
+        for (let i = 0; i < weeks.length; i++) {
+          const weekStart = weeks[i];
+          const weekEnd = i < weeks.length - 1 ? weeks[i + 1] : now;
+          const weekSales = sales.filter(s => {
+            const d = new Date(s.created_at);
+            return d >= weekStart && d < weekEnd;
+          });
+          chartData.push({
+            label: format(weekStart, "dd MMM", { locale: tr }),
+            total: weekSales.reduce((s, r) => s + Number(r.total), 0),
+            count: weekSales.length,
+          });
+        }
+      } else {
+        const months = eachMonthOfInterval({ start: startDate, end: now });
+        for (const month of months) {
+          const monthStr = format(month, "yyyy-MM");
+          const monthSales = sales.filter(s => format(new Date(s.created_at), "yyyy-MM") === monthStr);
+          chartData.push({
+            label: format(month, "MMM yy", { locale: tr }),
+            total: monthSales.reduce((s, r) => s + Number(r.total), 0),
+            count: monthSales.length,
+          });
+        }
+      }
+
+      return chartData;
+    },
   });
 }
 
@@ -120,14 +191,6 @@ export function useLowStockProducts(page: number, pageSize = 5) {
   return useQuery({
     queryKey: ["dashboard-low-stock", page, pageSize],
     queryFn: async () => {
-      // Get total count first
-      const { count } = await supabase
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true)
-        .filter("stock", "lt", "min_stock" as any);
-
-      // We can't use column references in .lt(), so fetch all and filter client-side
       const { data, error } = await supabase
         .from("products")
         .select("id, name, barcode, stock, min_stock, image_url")

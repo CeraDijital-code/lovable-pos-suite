@@ -1,17 +1,25 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import {
-  Package, Tags, Wallet, TrendingUp, ShoppingCart, AlertTriangle,
+  Package, Tags, TrendingUp, ShoppingCart, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Heart, ChevronDown, ChevronUp,
-  CreditCard, Banknote, Users, Star, Loader2, ChevronLeft, ChevronRight,
+  CreditCard, Banknote, Star, Loader2, ChevronLeft, ChevronRight,
+  BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useDashboardStats, useRecentSales, useLowStockProducts, type DashboardSale } from "@/hooks/useDashboard";
+import {
+  useDashboardStats, useRecentSales, useLowStockProducts, useSalesChart,
+  type DashboardSale,
+} from "@/hooks/useDashboard";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
+} from "recharts";
 
 const paymentIcons: Record<string, typeof CreditCard> = {
   cash: Banknote,
@@ -38,7 +46,7 @@ function SaleRow({ sale }: { sale: DashboardSale }) {
               <PayIcon className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold">#{sale.sale_number}</p>
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                   {paymentLabels[sale.payment_method] || sale.payment_method}
@@ -105,11 +113,28 @@ function SaleRow({ sale }: { sale: DashboardSale }) {
   );
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card p-3 shadow-md">
+      <p className="text-xs font-semibold mb-1">{label}</p>
+      <p className="text-sm text-primary font-bold">
+        ₺{Number(payload[0]?.value || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}
+      </p>
+      {payload[0]?.payload?.count !== undefined && (
+        <p className="text-[10px] text-muted-foreground">{payload[0].payload.count} işlem</p>
+      )}
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: recentSales, isLoading: salesLoading } = useRecentSales();
   const [lowStockPage, setLowStockPage] = useState(0);
   const { data: lowStock, isLoading: lowStockLoading } = useLowStockProducts(lowStockPage);
+  const [chartPeriod, setChartPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const { data: chartData, isLoading: chartLoading } = useSalesChart(chartPeriod);
 
   const statCards = [
     {
@@ -146,12 +171,9 @@ const Dashboard = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Tekel bayi yönetim paneline hoş geldiniz
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">Tekel bayi yönetim paneline hoş geldiniz</p>
         </div>
 
         {/* Stats Grid */}
@@ -187,6 +209,71 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
+
+        {/* Sales Chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Satış Grafiği
+              </CardTitle>
+              <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="daily" className="text-xs px-3 h-7">Günlük</TabsTrigger>
+                  <TabsTrigger value="weekly" className="text-xs px-3 h-7">Haftalık</TabsTrigger>
+                  <TabsTrigger value="monthly" className="text-xs px-3 h-7">Aylık</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {chartLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !chartData?.length ? (
+              <div className="flex flex-col items-center py-12 text-muted-foreground">
+                <BarChart3 className="h-10 w-10 mb-2 opacity-30" />
+                <p className="text-sm">Henüz satış verisi yok</p>
+              </div>
+            ) : (
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(36, 80%, 50%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(36, 80%, 50%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => `₺${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="total"
+                      stroke="hsl(36, 80%, 50%)"
+                      strokeWidth={2}
+                      fill="url(#salesGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Two columns */}
         <div className="grid gap-6 lg:grid-cols-5">
@@ -246,10 +333,7 @@ const Dashboard = () => {
               ) : (
                 <div className="space-y-3">
                   {lowStock.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-lg border border-warning/20 bg-warning/5 p-3"
-                    >
+                    <div key={item.id} className="rounded-lg border border-warning/20 bg-warning/5 p-3">
                       <p className="text-sm font-medium">{item.name}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">{item.barcode}</p>
                       <div className="mt-1.5 flex items-center justify-between">
@@ -258,39 +342,21 @@ const Dashboard = () => {
                         </span>
                       </div>
                       <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-warning transition-all"
-                          style={{
-                            width: `${Math.min((item.stock / item.min_stock) * 100, 100)}%`,
-                          }}
-                        />
+                        <div className="h-full rounded-full bg-warning transition-all" style={{ width: `${Math.min((item.stock / item.min_stock) * 100, 100)}%` }} />
                       </div>
                     </div>
                   ))}
 
-                  {/* Pagination */}
                   {lowStock.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-2">
                       <p className="text-[10px] text-muted-foreground">
                         {lowStockPage * 5 + 1}-{Math.min((lowStockPage + 1) * 5, lowStock.totalCount)} / {lowStock.totalCount}
                       </p>
                       <div className="flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          disabled={lowStockPage === 0}
-                          onClick={() => setLowStockPage((p) => p - 1)}
-                        >
+                        <Button variant="outline" size="icon" className="h-7 w-7" disabled={lowStockPage === 0} onClick={() => setLowStockPage((p) => p - 1)}>
                           <ChevronLeft className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          disabled={lowStockPage >= lowStock.totalPages - 1}
-                          onClick={() => setLowStockPage((p) => p + 1)}
-                        >
+                        <Button variant="outline" size="icon" className="h-7 w-7" disabled={lowStockPage >= lowStock.totalPages - 1} onClick={() => setLowStockPage((p) => p + 1)}>
                           <ChevronRight className="h-3.5 w-3.5" />
                         </Button>
                       </div>
