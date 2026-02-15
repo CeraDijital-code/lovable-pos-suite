@@ -35,7 +35,6 @@ const SettingsPage = () => {
   const [currencySymbol, setCurrencySymbol] = useState("₺");
 
   // System
-  const [pointsPerTl, setPointsPerTl] = useState(1);
   const [minStockAlert, setMinStockAlert] = useState(true);
 
   // Logos
@@ -58,7 +57,6 @@ const SettingsPage = () => {
       setReceiptHeader(settings.receipt_header);
       setReceiptFooter(settings.receipt_footer);
       setCurrencySymbol(settings.currency_symbol);
-      setPointsPerTl(settings.points_per_tl);
       setMinStockAlert(settings.min_stock_alert);
     }
   }, [settings]);
@@ -120,7 +118,6 @@ const SettingsPage = () => {
   const saveSystemInfo = async () => {
     setSavingSystem(true);
     await updateSettings.mutateAsync({
-      points_per_tl: pointsPerTl,
       min_stock_alert: minStockAlert,
     });
     setSavingSystem(false);
@@ -425,24 +422,6 @@ const SettingsPage = () => {
                     <p className="text-xs text-muted-foreground">Minimum stok seviyesinin altına düşen ürünler için bildirim</p>
                   </div>
                   <Switch checked={minStockAlert} onCheckedChange={setMinStockAlert} />
-                </div>
-
-                <div className="rounded-lg border p-4 space-y-3">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Puan Kazanım Oranı</Label>
-                    <p className="text-xs text-muted-foreground">Müşterinin her 1₺ harcamada kazanacağı puan</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.1}
-                      value={pointsPerTl}
-                      onChange={e => setPointsPerTl(Number(e.target.value))}
-                      className="max-w-[120px]"
-                    />
-                    <span className="text-sm text-muted-foreground">puan / ₺</span>
-                  </div>
                 </div>
 
                 <Separator />

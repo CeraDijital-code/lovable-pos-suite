@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useStoreSettings, useUpdateStoreSettings } from "@/hooks/useStoreSettings";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import {
   Phone,
   QrCode,
   Gift,
+  Settings,
   Calendar,
   Package,
   ShoppingBag,
@@ -129,6 +131,9 @@ const LoyaltyPage = () => {
   const deleteRule = useDeletePointRule();
   const { data: transactions = [] } = useLoyaltyTransactions(selectedCustomer?.id);
   const { data: allProducts = [] } = useProducts();
+  const { data: storeSettings } = useStoreSettings();
+  const updateStoreSettings = useUpdateStoreSettings();
+  const [pointValueTl, setPointValueTl] = useState(0.01);
 
   const filteredProducts = allProducts.filter(
     (p) =>
@@ -138,6 +143,12 @@ const LoyaltyPage = () => {
           p.barcode.includes(productSearch)
         : true)
   );
+
+  useEffect(() => {
+    if (storeSettings) {
+      setPointValueTl(storeSettings.point_value_tl);
+    }
+  }, [storeSettings]);
 
   const handleAddCustomer = () => {
     if (!newName.trim() || !newPhone.trim()) return;
@@ -283,7 +294,7 @@ const LoyaltyPage = () => {
         </div>
 
         <Tabs defaultValue="customers" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-lg">
             <TabsTrigger value="customers" className="gap-2">
               <Users className="h-4 w-4" />
               Müşteriler
@@ -291,6 +302,10 @@ const LoyaltyPage = () => {
             <TabsTrigger value="rules" className="gap-2">
               <Award className="h-4 w-4" />
               Puan Kuralları
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Puan Ayarları
             </TabsTrigger>
           </TabsList>
 
@@ -625,6 +640,81 @@ const LoyaltyPage = () => {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          {/* SETTINGS TAB */}
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary" />
+                  Puan Değeri Ayarı
+                </CardTitle>
+                <CardDescription>
+                  1 puanın parasal karşılığını belirleyin. Müşteri puan harcadığında bu değer üzerinden indirim uygulanır.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-xl border bg-muted/30 p-6 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Gift className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-sm font-semibold">1 Puan = ? ₺</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Müşterinin harcadığı her 1 puan ne kadar indirime karşılık gelecek
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-muted-foreground">1 Puan =</span>
+                    <Input
+                      type="number"
+                      min={0.01}
+                      step={0.01}
+                      value={pointValueTl}
+                      onChange={(e) => setPointValueTl(Number(e.target.value))}
+                      className="max-w-[120px] text-center font-bold text-lg"
+                    />
+                    <span className="text-sm font-medium text-muted-foreground">₺</span>
+                  </div>
+
+                  {pointValueTl > 0 && (
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      {[10, 50, 100].map((pts) => (
+                        <div key={pts} className="rounded-lg border bg-card p-3 text-center">
+                          <p className="text-xs text-muted-foreground">{pts} Puan</p>
+                          <p className="text-lg font-bold text-primary">₺{(pts * pointValueTl).toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+                <div className="flex justify-end">
+                  <Button
+                    className="gap-2 min-w-[140px]"
+                    disabled={updateStoreSettings.isPending}
+                    onClick={() => updateStoreSettings.mutate({ point_value_tl: pointValueTl })}
+                  >
+                    {updateStoreSettings.isPending ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        Kaydediliyor...
+                      </span>
+                    ) : (
+                      <>
+                        <Star className="h-4 w-4" />
+                        Kaydet
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
