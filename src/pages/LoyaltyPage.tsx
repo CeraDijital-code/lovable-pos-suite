@@ -157,10 +157,10 @@ const LoyaltyPage = () => {
     setEditingRule(null);
     setRuleType("genel");
     setRuleName("");
-    setRulePointsPerTl("1");
+    setRulePointsPerTl("100");
     setRuleProductId("");
     setRuleMinQty("1");
-    setRuleBonusPoints("0");
+    setRuleBonusPoints("1");
     setRuleValidDays([]);
     setRuleStartDate(new Date().toISOString().split("T")[0]);
     setRuleEndDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
@@ -577,7 +577,7 @@ const LoyaltyPage = () => {
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {rule.type === "genel" && (
                             <span className="text-xs text-muted-foreground">
-                              Her 1 TL = {rule.points_per_tl} puan
+                              Her {rule.points_per_tl} TL = {rule.bonus_points} puan
                             </span>
                           )}
                           {(rule.type === "urun" || rule.type === "ozel_gun") && (
@@ -745,16 +745,35 @@ const LoyaltyPage = () => {
             </div>
 
             {ruleType === "genel" && (
-              <div>
-                <Label>Her 1 TL'ye Kaç Puan</Label>
-                <Input
-                  type="number"
-                  className="mt-1.5"
-                  value={rulePointsPerTl}
-                  onChange={(e) => setRulePointsPerTl(e.target.value)}
-                  min={0}
-                  step="0.1"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Her Kaç TL Harcamada</Label>
+                  <Input
+                    type="number"
+                    className="mt-1.5"
+                    value={rulePointsPerTl}
+                    onChange={(e) => setRulePointsPerTl(e.target.value)}
+                    min={1}
+                    step="1"
+                    placeholder="200"
+                  />
+                </div>
+                <div>
+                  <Label>Kaç Puan Kazanılır</Label>
+                  <Input
+                    type="number"
+                    className="mt-1.5"
+                    value={ruleBonusPoints}
+                    onChange={(e) => setRuleBonusPoints(e.target.value)}
+                    min={1}
+                    placeholder="10"
+                  />
+                </div>
+                {rulePointsPerTl && ruleBonusPoints && parseInt(ruleBonusPoints) > 0 && (
+                  <p className="col-span-2 text-xs text-muted-foreground text-center bg-muted/50 rounded-lg p-2">
+                    Örnek: ₺{parseFloat(rulePointsPerTl) * 3} harcayan müşteri → <span className="font-bold text-primary">{parseInt(ruleBonusPoints) * 3} puan</span> kazanır
+                  </p>
+                )}
               </div>
             )}
 

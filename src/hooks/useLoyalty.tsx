@@ -49,11 +49,31 @@ export function useLoyaltyCustomers(search?: string) {
     queryFn: async () => {
       let q = supabase.from("loyalty_customers").select("*").order("created_at", { ascending: false });
       if (search) {
-        q = q.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`);
+        q = q.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,qr_code.ilike.%${search}%`);
       }
       const { data, error } = await q;
       if (error) throw error;
       return data as LoyaltyCustomer[];
+    },
+  });
+}
+
+export function useFindCustomerByQr() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (qrCode: string) => {
+      const { data, error } = await supabase
+        .from("loyalty_customers")
+        .select("*")
+        .eq("qr_code", qrCode)
+        .eq("is_active", true)
+        .single();
+      if (error) throw new Error("Bu QR koda ait müşteri bulunamadı");
+      return data as LoyaltyCustomer;
+    },
+    onError: (err: any) => {
+      toast({ title: "Bulunamadı", description: err.message, variant: "destructive" });
     },
   });
 }
@@ -227,7 +247,9 @@ export function calculateEarnedPoints(
 
   for (const rule of activeRules) {
     if (rule.type === "genel") {
-      const pts = Math.floor(saleTotal * rule.points_per_tl);
+      // points_per_tl = "her X TL", bonus_points = "Y puan"
+      const threshold = Number(rule.points_per_tl) || 1;
+      const pts = Math.floor(saleTotal / threshold) * rule.bonus_points;
       if (pts > 0) breakdown.push({ ruleName: rule.name, points: pts });
     }
 
