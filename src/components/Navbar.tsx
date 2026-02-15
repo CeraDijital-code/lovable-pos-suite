@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   LayoutDashboard,
+  ClipboardList,
   Package,
   Tags,
   Wallet,
@@ -29,6 +30,7 @@ const navItems = [
   { label: "Kampanyalar", path: "/kampanyalar", icon: Tags },
   { label: "Kasa", path: "/kasa", icon: Wallet },
   { label: "Raporlar", path: "/raporlar", icon: BarChart3 },
+  { label: "Stok Raporu", path: "/stok-raporu", icon: ClipboardList },
   { label: "Personel", path: "/personel", icon: Users },
   { label: "Ayarlar", path: "/ayarlar", icon: Settings },
 ];
