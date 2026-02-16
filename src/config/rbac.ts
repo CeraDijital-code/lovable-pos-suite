@@ -17,6 +17,7 @@ export const allPages: PagePermission[] = [
   { path: "/raporlar", label: "Raporlar", description: "Satış ve finansal raporlar" },
   { path: "/stok-raporu", label: "Stok Raporu", description: "Stok hareket raporları" },
   { path: "/sadakat", label: "Sadakat", description: "Müşteri sadakat programı" },
+  { path: "/tedarikciler", label: "Tedarikçiler", description: "Tedarikçi ve irsaliye yönetimi" },
   { path: "/personel", label: "Personel", description: "Personel ve yetki yönetimi" },
   { path: "/ayarlar", label: "Ayarlar", description: "Sistem ayarları" },
 ];

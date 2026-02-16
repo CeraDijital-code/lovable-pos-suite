@@ -18,6 +18,7 @@ import SettingsPage from "./pages/SettingsPage";
 import StaffPage from "./pages/StaffPage";
 import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
+import SuppliersPage from "./pages/SuppliersPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const AppRoutes = () => (
     <Route path="/sadakat" element={<ProtectedRoute><LoyaltyPage /></ProtectedRoute>} />
     <Route path="/personel" element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
     <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    <Route path="/tedarikciler" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
     <Route path="/ayarlar" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>

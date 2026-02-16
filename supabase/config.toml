@@ -1,1 +1,4 @@
 project_id = "qfsgcxfmqrtvpitggvae"
+
+[functions.parse-invoice]
+verify_jwt = false
