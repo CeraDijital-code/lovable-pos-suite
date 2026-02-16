@@ -1,189 +1,188 @@
 
+# Tedarikci Modulu - Kapsamli Yol Haritasi
 
-# Sadakat Programi - Tam Fonksiyonel Uygulama Plani
+## Genel Bakis
 
-## 1. Veritabani Degisiklikleri
+Tedarikci Modulu, tedarikci yonetimi, irsaliye/fatura yukleme (PDF/gorsel), yapay zeka ile otomatik urun tanima, stok girisi ve cari hesap (borc/alacak) takibini tek bir modulde birlestiren kapsamli bir cozumdur.
 
-Asagidaki tablolar olusturulacak:
+## Faz 1: Temel Altyapi (Tedarikci ve Irsaliye Yonetimi)
 
-### `loyalty_customers` - Sadakat Musterileri
-| Kolon | Tip | Aciklama |
-|-------|-----|----------|
-| id | uuid (PK) | Birincil anahtar |
-| full_name | text | Musteri adi |
-| phone | text (unique) | Telefon numarasi (SMS OTP icin) |
-| qr_code | text (unique) | Benzersiz QR kod |
-| total_points | integer (default 0) | Mevcut puan bakiyesi |
-| total_spent | numeric (default 0) | Toplam harcama |
-| total_visits | integer (default 0) | Ziyaret sayisi |
-| is_active | boolean (default true) | Aktif/Pasif |
-| created_at | timestamptz | Kayit tarihi |
+### 1.1 Veritabani Tablolari
 
-### `loyalty_point_rules` - Puan Kazanim Kurallari
-| Kolon | Tip | Aciklama |
-|-------|-----|----------|
-| id | uuid (PK) | Birincil anahtar |
-| name | text | Kural adi |
-| type | text | "genel" (TL basina), "urun" (urun bazli), "ozel_gun" (gun bazli ozel) |
-| points_per_tl | numeric (default 0) | Her X TL'ye kac puan (genel tip icin) |
-| product_id | uuid (nullable) | Hangi urune ozel (urun tipi icin) |
-| min_quantity | integer (default 1) | Minimum alim adedi |
-| bonus_points | integer (default 0) | Kazanilacak bonus puan |
-| valid_days | text[] (nullable) | Gecerli gunler - ornegin ["monday","friday"] |
-| start_date | date | Baslangic tarihi |
-| end_date | date | Bitis tarihi |
-| is_active | boolean (default true) | Aktif mi |
-| created_at | timestamptz | Olusturulma |
+- **suppliers**: Tedarikci bilgileri (ad, vergi no, telefon, adres, iban, yetkili kisi, notlar, aktif/pasif)
+- **supplier_invoices**: Irsaliye/fatura kayitlari (tedarikci_id, belge no, tarih, toplam tutar, KDV, durum [beklemede/onaylandi/iptal], dosya URL, not)
+- **supplier_invoice_items**: Irsaliye kalemleri (irsaliye_id, urun_id, urun_adi, barkod, miktar, birim fiyat, toplam, KDV orani)
+- **supplier_payments**: Odeme kayitlari (tedarikci_id, irsaliye_id [opsiyonel], tutar, odeme tarihi, odeme yontemi, aciklama)
+- **supplier_documents**: Ek belgeler (tedarikci_id, dosya_url, dosya_adi, dosya_tipi, yuklenme tarihi)
 
-### `loyalty_transactions` - Puan Islem Gecmisi
-| Kolon | Tip | Aciklama |
-|-------|-----|----------|
-| id | uuid (PK) | Birincil anahtar |
-| customer_id | uuid (FK) | Musteri |
-| sale_id | uuid (nullable) | Satis referansi |
-| type | text | "earn" veya "redeem" |
-| points | integer | Puan miktari |
-| description | text | Aciklama |
-| created_by | uuid (nullable) | Islemi yapan kasiyer |
-| created_at | timestamptz | Islem zamani |
+### 1.2 Tedarikci CRUD Islemleri
 
-### `otp_verifications` - SMS OTP Kayitlari
-| Kolon | Tip | Aciklama |
-|-------|-----|----------|
-| id | uuid (PK) | Birincil anahtar |
-| phone | text | Telefon numarasi |
-| code | text | 6 haneli OTP kodu |
-| purpose | text | "login" veya "redeem" |
-| expires_at | timestamptz | Son gecerlilik |
-| verified | boolean (default false) | Dogrulandi mi |
-| created_at | timestamptz | Olusturulma |
+- Tedarikci ekleme, duzenleme, silme (soft delete)
+- Tedarikci arama ve filtreleme
+- Tedarikci detay sayfasi (ozet bilgiler, cari bakiye, son islemler)
 
-### `sales` tablosuna ekleme:
-- `loyalty_customer_id` (uuid, nullable) - Satisa bagli sadakat musterisi
-- `points_earned` (integer, default 0) - Kazanilan puan
-- `points_redeemed` (integer, default 0) - Harcanan puan
+## Faz 2: Irsaliye/Fatura Yukleme ve AI ile Otomatik Tanima
 
-Tum tablolara authenticated kullanicilar icin RLS politikalari eklenecek.
+### 2.1 Belge Yukleme
 
-## 2. Edge Function: `send-otp`
+- PDF ve gorsel (JPG, PNG) yukleme destegi (Lovable Cloud Storage)
+- Yuklenen belgelerin onizleme ve arsivlenmesi
+- Coklu dosya yukleme destegi
 
-SMS OTP gondermek icin bir backend fonksiyonu olusturulacak. Bu fonksiyon:
-- Telefon numarasina 6 haneli rastgele kod uretir
-- `otp_verifications` tablosuna kaydeder (5 dakika gecerlilik)
-- Gercek SMS entegrasyonu icin bir SMS saglayici (Twilio, Netgsm vb.) gerekecek. Baslangicta kod sadece veritabanina yazilacak ve konsola loglanacak; SMS saglayici baglantisi icin kullaniciya sorulacak
-- `purpose` parametresi: "login" (mobil giris) veya "redeem" (puan harcama)
+### 2.2 AI ile Otomatik Urun Tanima
 
-### Edge Function: `verify-otp`
+- Yuklenen irsaliye gorseli/PDF'i Lovable AI destekli modeller (google/gemini-2.5-flash) ile analiz edilir
+- AI, belgeden urun adlari, miktarlar, birim fiyatlar ve toplam tutarlari cikarir
+- Cikartilan veriler mevcut urun veritabaniyla eslestirilir (barkod veya isim benzerligi)
+- Eslesmeyenler icin "Yeni urun olustur" veya "Manuel esle" secenegi sunulur
+- Kullanici onayindan sonra toplu stok girisi yapilir
 
-- Telefon + kod + purpose alir
-- `otp_verifications` tablosundan dogrular (suresi dolmamis, kullanilmamis)
-- "login" icin: loyalty_customers tablosundan musteriyi dondurur
-- "redeem" icin: dogrulama sonucu dondurur, kasada puan harcama islemine izin verir
+### 2.3 Stok Girisi Entegrasyonu
 
-## 3. Yeni Sayfa: Sadakat Yonetimi (`/sadakat`)
+- Onaylanan irsaliye kalemleri otomatik olarak `stock_movements` tablosuna "in" hareketi olarak kaydedilir
+- `products` tablosundaki stok miktarlari guncellenir
+- Irsaliye ile stok hareketi arasinda referans baglantisi tutulur
 
-### 3a. Musteri Yonetim Paneli
-- Musteri listesi (arama, telefon/isim ile filtreleme)
-- Yeni musteri ekleme formu (ad + telefon)
-- Her musteriye otomatik QR kod uretimi
-- Musteri detay karti: puan bakiyesi, toplam harcama, ziyaret sayisi, islem gecmisi
-- QR kod goruntuleme ve yazdirma (qrcode npm paketi ile SVG olusturma)
+## Faz 3: Cari Hesap (Borc/Alacak Takibi)
 
-### 3b. Puan Kazanim Kurallari Yonetimi
-Bu ekran uc tip kural destekleyecek:
+### 3.1 Cari Bakiye Hesaplama
 
-1. **Genel Kural**: "Her X TL harcamaya Y puan" (ornegin her 1 TL = 1 puan)
-2. **Urun Bazli Kural**: "X urununden Y adet alana Z puan" (ornegin Efes Pilsen 3 adet alana 50 puan)
-3. **Ozel Gun Kurali**: "X urununu Y gununde alana Z bonus puan" (ornegin Cuma gunleri Efes alana ekstra 20 puan)
+- Her tedarikci icin toplam borc (onaylanan irsaliyeler) ve toplam odeme takibi
+- Canli bakiye gosterimi: `Toplam Borc - Toplam Odeme = Kalan Borc`
+- Vadesi gecmis borclar icin uyari sistemi
 
-Kural olusturma formu:
-- Tip secimi (gorsel kartlar ile)
-- Urun secimi (barkod okuma destekli, urun bazli ve ozel gun kurallari icin)
-- Tarih araligi
-- Aktif/pasif durumu
-- Kural listesi (kart gorunumu, duzenle/sil)
+### 3.2 Odeme Kaydi
 
-## 4. Kasa Entegrasyonu
+- Nakit, havale/EFT, kredi karti, cek ile odeme girisi
+- Parcali odeme destegi (bir irsaliyeye birden fazla odeme)
+- Serbest odeme (belirli bir irsaliyeye baglanmayan genel odeme)
 
-### 4a. Musteri Secimi
-- Kasa ekraninin ust kisminda "Sadakat Musterisi" alani
-- Telefon numarasi ile arama veya QR kod okutma
-- Secili musterinin adi ve puan bakiyesi gosterimi
-- Musteri kaldir butonu
+### 3.3 Cari Ekstre
 
-### 4b. Puan Kazanma (Otomatik)
-- Satis tamamlandiginda, aktif puan kurallari kontrol edilir
-- Genel kural: toplam tutar uzerinden puan hesaplanir
-- Urun bazli kural: sepetteki urunler kontrol edilir, minimum adet saglananlar icin bonus puan eklenir
-- Ozel gun kurali: bugunun gunu kontrol edilir, eslesen urunler icin ekstra puan eklenir
-- Tum puanlar toplanir ve `loyalty_transactions` tablosuna "earn" olarak kaydedilir
-- Musteri `total_points` guncellenir
+- Tarih araligina gore tedarikci bazli ekstre raporu
+- PDF olarak ekstre indirme (jsPDF ile)
 
-### 4c. Puanla Odeme
-- Odeme butunlari arasina "Puanla Ode" secenegi eklenir
-- Puan/TL cevrim orani: ornegin 100 puan = 1 TL (ayarlanabilir)
-- Puanla odeme secildiginde SMS OTP dogrulama modali acilir:
-  1. Musterinin telefonuna OTP gonderilir (send-otp edge function)
-  2. Kasiyer OTP kodunu girer
-  3. verify-otp ile dogrulanir
-  4. Dogrulama basariliysa puan dusumu yapilir
-- Parcali odemede de puan kullanimi desteklenir
+## Faz 4: Raporlama ve Analitik
 
-## 5. Mobil Uygulama Altyapisi
+### 4.1 Tedarikci Raporlari
 
-Sistem su sekilde mobil uygulamaya hazir olacak:
+- En cok alim yapilan tedarikcilar (tutara ve kaleme gore)
+- Aylik/haftalik tedarikci bazli alisveris trendi (recharts grafikleri)
+- Odenmemis borc ozeti ve vade analizi
+- Urun bazli tedarikci karsilastirmasi (ayni urunu hangi tedarikci daha uygun sunuyor)
 
-- `loyalty_customers` tablosunda `phone` ve `qr_code` alanlari mobil giris ve tanima icin kullanilacak
-- `send-otp` ve `verify-otp` edge function'lari mobil uygulama tarafindan da cagrilabilecek
-- Mobil uygulama akisi:
-  1. Kullanici telefon numarasini girer
-  2. `send-otp` cagirilir (purpose: "login")
-  3. SMS ile gelen kodu girer
-  4. `verify-otp` ile dogrulanir
-  5. Musteri bilgileri ve QR kodu gosterilir
-- OTP tablosu ve edge function'lar hem POS hem mobil icin ortak kullanilacak
+### 4.2 Maliyet Analizi
 
-## 6. Navigasyon ve Routing
+- Urun maliyet fiyati degisim gecmisi (tedarikci irsaliyelerinden otomatik)
+- Kar marji analizi: Satis fiyati vs son alis fiyati karsilastirmasi
 
-- `Navbar.tsx`: navItems dizisine `{ label: "Sadakat", path: "/sadakat", icon: Heart }` eklenir
-- `App.tsx`: `/sadakat` route'u `LoyaltyPage` icin eklenir
+## Faz 5: Gelismis Ozellikler
 
-## 7. Yeni Hook: `useLoyalty.tsx`
+### 5.1 Otomatik Siparis Onerisi
 
-- `useLoyaltyCustomers()` - Musteri listesi
-- `useCreateLoyaltyCustomer()` - Yeni musteri
-- `useUpdateLoyaltyCustomer()` - Musteri guncelleme
-- `useLoyaltyPointRules()` - Puan kurallari listesi
-- `useCreatePointRule()` - Yeni kural
-- `useUpdatePointRule()` / `useDeletePointRule()` - Kural CRUD
-- `useLoyaltyTransactions(customerId)` - Islem gecmisi
-- `calculateEarnedPoints(cartItems, rules)` - Sepetten kazanilacak puan hesabi
-- `useRedeemPoints()` - Puan harcama (OTP dogrulama sonrasi)
+- Min stok seviyesinin altina dusen urunler icin tedarikci bazli siparis onerisi
+- Onceki alimlara gore tercih edilen tedarikci ve miktar onerisi
 
-## 8. Yeni Paket
+### 5.2 Tedarikci Performans Degerlendirmesi
 
-- `qrcode` npm paketi: Musteri QR kod uretimi icin
+- Teslimat suresi takibi
+- Fiyat istikrari skoru
+- Urun kalitesi puanlamasi (kullanici girdisi ile)
 
-## 9. Dosya Degisiklikleri Ozeti
+### 5.3 Bildirim Sistemi
 
-| Dosya | Islem |
-|-------|-------|
-| Migration SQL | Yeni: 4 tablo + sales guncelleme |
-| `src/hooks/useLoyalty.tsx` | Yeni: Tum sadakat hook'lari |
-| `src/pages/LoyaltyPage.tsx` | Yeni: Sadakat yonetim sayfasi |
-| `supabase/functions/send-otp/index.ts` | Yeni: OTP gonderme |
-| `supabase/functions/verify-otp/index.ts` | Yeni: OTP dogrulama |
-| `src/pages/CashRegisterPage.tsx` | Guncelleme: Musteri secimi, puan kazanma/harcama, OTP modali |
-| `src/hooks/useSales.tsx` | Guncelleme: loyalty_customer_id, puan islemleri |
-| `src/components/Navbar.tsx` | Guncelleme: Sadakat linki |
-| `src/App.tsx` | Guncelleme: /sadakat route |
+- Vadesi yaklasan odemeler icin hatirlatma
+- Yeni irsaliye yuklendigi zaman ilgili kullanicilara bildirim
 
-## 10. SMS Saglayici Notu
+---
 
-Gercek SMS gonderimi icin bir SMS API saglayicisi gereklidir (Twilio, Netgsm, Iletimerkezi vb.). Baslangicta OTP kodlari:
-- Edge function loglarinda gorunecek
-- Veritabaninda `otp_verifications` tablosunda saklanacak
-- Kasada test amacli olarak "Son gonderilen kod" bilgisi gelistirici modunda gosterilebilir
+## Teknik Detaylar
 
-SMS entegrasyonu icin kullanicidan API anahtari istenecek ve backend'e guvenli sekilde eklenecektir.
+### Veritabani Semasi
 
+```text
+suppliers
+  id (uuid, PK)
+  name (text, NOT NULL)
+  tax_number (text)
+  tax_office (text)
+  phone (text)
+  email (text)
+  address (text)
+  contact_person (text)
+  iban (text)
+  notes (text)
+  is_active (boolean, default true)
+  created_at, updated_at
+
+supplier_invoices
+  id (uuid, PK)
+  supplier_id (uuid, FK -> suppliers)
+  invoice_number (text)
+  invoice_date (date)
+  due_date (date)
+  subtotal (numeric)
+  tax_amount (numeric)
+  total (numeric)
+  status (text: pending/approved/cancelled)
+  document_url (text)
+  notes (text)
+  created_by (uuid)
+  created_at, updated_at
+
+supplier_invoice_items
+  id (uuid, PK)
+  invoice_id (uuid, FK -> supplier_invoices)
+  product_id (uuid, FK -> products, nullable)
+  product_name (text)
+  barcode (text)
+  quantity (integer)
+  unit_price (numeric)
+  tax_rate (numeric, default 0)
+  total (numeric)
+
+supplier_payments
+  id (uuid, PK)
+  supplier_id (uuid, FK -> suppliers)
+  invoice_id (uuid, FK -> supplier_invoices, nullable)
+  amount (numeric)
+  payment_date (date)
+  payment_method (text)
+  description (text)
+  created_by (uuid)
+  created_at
+
+supplier_documents
+  id (uuid, PK)
+  supplier_id (uuid, FK -> suppliers)
+  file_url (text)
+  file_name (text)
+  file_type (text)
+  created_at
+```
+
+### Yeni Dosyalar
+
+- `src/pages/SuppliersPage.tsx` - Ana tedarikci sayfasi (tab yapisi)
+- `src/hooks/useSuppliers.tsx` - Tedarikci CRUD hook'lari
+- `src/hooks/useSupplierInvoices.tsx` - Irsaliye hook'lari
+- `src/hooks/useSupplierPayments.tsx` - Odeme hook'lari
+- `supabase/functions/parse-invoice/index.ts` - AI irsaliye analiz edge function
+
+### Mevcut Dosyalarda Degisiklikler
+
+- `src/App.tsx` - Yeni route ekleme (`/tedarikciler`)
+- `src/components/Navbar.tsx` - Nav menusune "Tedarikciler" ekleme
+- `src/config/rbac.ts` - `allPages` listesine yeni sayfa ekleme
+- `src/integrations/supabase/types.ts` - Otomatik guncellenecek
+
+### AI Irsaliye Analizi (Edge Function)
+
+- Yuklenen PDF/gorsel Lovable Cloud Storage'a kaydedilir
+- Edge function, dosyayi `google/gemini-2.5-flash` modeline gonderir
+- Model, belgeden yapilandirilmis veri cikarir (urun adi, miktar, fiyat, KDV)
+- Sonuc JSON olarak doner, frontend'de kullanici onayina sunulur
+
+### Uygulama Onceligi
+
+Faz 1 ve 2 birlikte uygulanacak (temel CRUD + irsaliye yukleme + AI tanima). Faz 3 (cari hesap) hemen ardindan eklenecek. Faz 4 ve 5 ileriki asamalarda gelistirilecek.
