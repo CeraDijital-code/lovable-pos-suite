@@ -23,6 +23,7 @@ import {
   BarChart3,
   Settings,
   Users,
+  Truck,
   LogOut,
   User,
   Heart,
@@ -38,6 +39,8 @@ const navItems = [
   { label: "Raporlar", path: "/raporlar", icon: BarChart3 },
   { label: "Stok Raporu", path: "/stok-raporu", icon: ClipboardList },
   { label: "Sadakat", path: "/sadakat", icon: Heart },
+  { label: "Sadakat", path: "/sadakat", icon: Heart },
+  { label: "Tedarikçiler", path: "/tedarikciler", icon: Truck },
   { label: "Personel", path: "/personel", icon: Users },
   { label: "Ayarlar", path: "/ayarlar", icon: Settings },
 ];
