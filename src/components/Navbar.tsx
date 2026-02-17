@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
-import { useCurrentUserRoles } from "@/hooks/useRoles";
+import { useCurrentUserRoles, type AppRole } from "@/hooks/useRoles";
 import { useRolePermissions, hasAccess } from "@/config/rbac";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -28,22 +28,116 @@ import {
   User,
   Heart,
   Menu,
+  ChevronDown,
+  ShoppingCart,
+  Boxes,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ElementType;
+}
+
+interface NavGroup {
+  label: string;
+  icon: React.ElementType;
+  items: NavItem[];
+}
+
+type NavEntry = NavItem | NavGroup;
+
+const isGroup = (entry: NavEntry): entry is NavGroup => "items" in entry;
+
+const navStructure: NavEntry[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { label: "Stok", path: "/stok", icon: Package },
-  { label: "Kampanyalar", path: "/kampanyalar", icon: Tags },
-  { label: "Kasa", path: "/kasa", icon: Wallet },
+  {
+    label: "Satış",
+    icon: ShoppingCart,
+    items: [
+      { label: "Kasa", path: "/kasa", icon: Wallet },
+      { label: "Kampanyalar", path: "/kampanyalar", icon: Tags },
+      { label: "Sadakat", path: "/sadakat", icon: Heart },
+    ],
+  },
+  {
+    label: "Stok & Tedarik",
+    icon: Boxes,
+    items: [
+      { label: "Stok Yönetimi", path: "/stok", icon: Package },
+      { label: "Stok Raporu", path: "/stok-raporu", icon: ClipboardList },
+      { label: "Tedarikçiler", path: "/tedarikciler", icon: Truck },
+    ],
+  },
   { label: "Raporlar", path: "/raporlar", icon: BarChart3 },
-  { label: "Stok Raporu", path: "/stok-raporu", icon: ClipboardList },
-  { label: "Sadakat", path: "/sadakat", icon: Heart },
-  { label: "Sadakat", path: "/sadakat", icon: Heart },
-  { label: "Tedarikçiler", path: "/tedarikciler", icon: Truck },
-  { label: "Personel", path: "/personel", icon: Users },
-  { label: "Ayarlar", path: "/ayarlar", icon: Settings },
+  {
+    label: "Yönetim",
+    icon: Shield,
+    items: [
+      { label: "Personel", path: "/personel", icon: Users },
+      { label: "Ayarlar", path: "/ayarlar", icon: Settings },
+    ],
+  },
 ];
+
+// Flatten for mobile & RBAC filtering
+const allNavItems: NavItem[] = navStructure.flatMap((entry) =>
+  isGroup(entry) ? entry.items : [entry]
+);
+
+function NavDropdownGroup({
+  group,
+  permissions,
+  userRoles,
+  currentPath,
+}: {
+  group: NavGroup;
+  permissions: any[];
+  userRoles: AppRole[];
+  currentPath: string;
+}) {
+  const visibleItems = group.items.filter((item) => hasAccess(permissions, userRoles, item.path));
+  if (visibleItems.length === 0) return null;
+
+  const isActiveGroup = visibleItems.some((item) => currentPath === item.path);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors outline-none",
+            isActiveGroup
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+        >
+          <group.icon className="h-4 w-4" />
+          <span>{group.label}</span>
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {visibleItems.map((item) => (
+          <DropdownMenuItem key={item.path} asChild>
+            <Link
+              to={item.path}
+              className={cn(
+                "flex items-center gap-2 w-full",
+                currentPath === item.path && "bg-primary/10 text-primary"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function Navbar() {
   const location = useLocation();
@@ -52,7 +146,7 @@ export function Navbar() {
   const { data: permissions = [] } = useRolePermissions();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleNavItems = navItems.filter((item) => hasAccess(permissions, userRoles, item.path));
+  const visibleMobileItems = allNavItems.filter((item) => hasAccess(permissions, userRoles, item.path));
 
   const getInitials = (name?: string | null) => {
     if (!name) return "?";
@@ -83,7 +177,7 @@ export function Navbar() {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 p-3">
-                {visibleNavItems.map((item) => {
+                {visibleMobileItems.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
                     <Link
@@ -138,12 +232,25 @@ export function Navbar() {
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-0.5">
-          {visibleNavItems.map((item) => {
-            const isActive = location.pathname === item.path;
+          {navStructure.map((entry) => {
+            if (isGroup(entry)) {
+              return (
+                <NavDropdownGroup
+                  key={entry.label}
+                  group={entry}
+                  permissions={permissions}
+                  userRoles={userRoles}
+                  currentPath={location.pathname}
+                />
+              );
+            }
+            // Standalone item
+            if (!hasAccess(permissions, userRoles, entry.path)) return null;
+            const isActive = location.pathname === entry.path;
             return (
               <Link
-                key={item.path}
-                to={item.path}
+                key={entry.path}
+                to={entry.path}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
@@ -151,8 +258,8 @@ export function Navbar() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
+                <entry.icon className="h-4 w-4" />
+                <span>{entry.label}</span>
               </Link>
             );
           })}
