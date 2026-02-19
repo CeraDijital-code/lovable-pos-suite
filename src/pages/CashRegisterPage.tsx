@@ -53,6 +53,7 @@ import {
   calculateEarnedPoints,
   type LoyaltyCustomer,
 } from "@/hooks/useLoyalty";
+import { useThemeLogo } from "@/hooks/useThemeLogo";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -172,6 +173,7 @@ const CashRegisterPage = () => {
   const { data: campaigns = [] } = useCampaigns();
   const completeSale = useCompleteSale();
   const { profile } = useAuth();
+  const { logoUrl } = useThemeLogo();
 
   // Loyalty hooks
   const { data: loyaltySearchResults = [] } = useLoyaltyCustomers(
@@ -472,10 +474,13 @@ const CashRegisterPage = () => {
       {/* Top bar */}
       <div className="h-12 border-b bg-card/95 backdrop-blur flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-            <Wallet className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-bold">TekelPOS</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-7 object-contain" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+              <Wallet className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
+          )}
           <Badge variant="outline" className="text-[10px] font-normal">
             Kasa
           </Badge>
