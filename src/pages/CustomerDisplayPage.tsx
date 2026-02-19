@@ -272,8 +272,8 @@ const CustomerDisplayPage = () => {
   const { data: campaigns = [] } = useCampaigns();
   const { data: allProducts = [] } = useProducts();
 
-  // Products with images for carousel
-  const productsWithImages = useMemo(() => allProducts.filter((p) => p.is_active && p.image_url), [allProducts]);
+  // Products selected for carousel
+  const productsWithImages = useMemo(() => allProducts.filter((p) => p.is_active && p.image_url && (p as any).show_in_carousel), [allProducts]);
 
   // Map product IDs to their active campaigns
   const productCampaignMap = useMemo(() => {

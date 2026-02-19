@@ -307,6 +307,7 @@ export type Database = {
           min_stock: number
           name: string
           price: number
+          show_in_carousel: boolean
           stock: number
           unit: string
           updated_at: string
@@ -322,6 +323,7 @@ export type Database = {
           min_stock?: number
           name: string
           price?: number
+          show_in_carousel?: boolean
           stock?: number
           unit?: string
           updated_at?: string
@@ -337,6 +339,7 @@ export type Database = {
           min_stock?: number
           name?: string
           price?: number
+          show_in_carousel?: boolean
           stock?: number
           unit?: string
           updated_at?: string
