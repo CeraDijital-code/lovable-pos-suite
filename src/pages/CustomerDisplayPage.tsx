@@ -24,15 +24,10 @@ import { useThemeLogo } from "@/hooks/useThemeLogo";
 import { useCampaigns, getCampaignDetails, getCampaignTypeIcon } from "@/hooks/useCampaigns";
 import { getLocalDateString } from "@/hooks/useCampaigns";
 import { useProducts } from "@/hooks/useProducts";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import TypewriterQuotes from "@/components/customer-display/TypewriterQuotes";
 import SnowEffect from "@/components/customer-display/SnowEffect";
-import { playSuccessSound } from "@/utils/successSound";
 
 // ── Types ──────────────────────────────────────────────
 interface CustomerCartItem {
@@ -82,8 +77,7 @@ const emptyData: CustomerDisplayData = {
   lastAction: null,
 };
 
-const fmt = (n: number) =>
-  n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ── Sub-components ─────────────────────────────────────
 
@@ -91,13 +85,13 @@ const ConfettiEffect = () => {
   const confetti = useMemo(() => {
     return Array.from({ length: 80 }, (_, i) => {
       const colors = [
-        'hsl(var(--primary))',
-        'hsl(var(--success))',
-        'hsl(var(--warning))',
-        'hsl(var(--destructive))',
-        '#FFD700',
-        '#FF69B4',
-        '#00CED1',
+        "hsl(var(--primary))",
+        "hsl(var(--success))",
+        "hsl(var(--warning))",
+        "hsl(var(--destructive))",
+        "#FFD700",
+        "#FF69B4",
+        "#00CED1",
       ];
       return {
         id: i,
@@ -148,7 +142,7 @@ const ConfettiEffect = () => {
             height: c.size * 0.6,
             backgroundColor: c.color,
             animation: `confetti-fall ${c.duration} ${c.delay} ease-in forwards`,
-            ['--drift' as string]: `${c.drift}px`,
+            ["--drift" as string]: `${c.drift}px`,
             transform: `rotate(${c.rotation}deg)`,
           }}
         />
@@ -177,35 +171,33 @@ const SuccessOverlay = ({
       {/* Animated success icon */}
       <div
         className="mx-auto h-32 w-32 rounded-full bg-success/20 border-2 border-success/40 flex items-center justify-center"
-        style={{ animation: 'success-pulse 2s infinite, star-burst 0.6s ease-out' }}
+        style={{ animation: "success-pulse 2s infinite, star-burst 0.6s ease-out" }}
       >
         <Sparkles className="h-16 w-16 text-success" />
       </div>
 
       {/* Thank you text with shimmer */}
-      <div style={{ animation: 'float-up 0.5s ease-out 0.2s both' }}>
+      <div style={{ animation: "float-up 0.5s ease-out 0.2s both" }}>
         <h1
           className="text-5xl font-black text-foreground"
           style={{
-            background: 'linear-gradient(90deg, hsl(var(--foreground)), hsl(var(--primary)), hsl(var(--foreground)))',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'shimmer 3s linear infinite',
+            background: "linear-gradient(90deg, hsl(var(--foreground)), hsl(var(--primary)), hsl(var(--foreground)))",
+            backgroundSize: "200% auto",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            animation: "shimmer 3s linear infinite",
           }}
         >
           Teşekkürler!
         </h1>
-        <p className="text-xl text-muted-foreground mt-3">
-          Alışverişiniz tamamlandı, iyi günler dileriz ✨
-        </p>
+        <p className="text-xl text-muted-foreground mt-3">Alışverişiniz tamamlandı, iyi günler dileriz ✨</p>
       </div>
 
       {/* Transaction summary cards */}
       {saleData && (
         <div
           className="flex flex-wrap items-center justify-center gap-4 mt-6"
-          style={{ animation: 'float-up 0.5s ease-out 0.4s both' }}
+          style={{ animation: "float-up 0.5s ease-out 0.4s both" }}
         >
           {/* Total */}
           <div className="bg-card/80 backdrop-blur border rounded-2xl px-6 py-4 min-w-[140px]">
@@ -244,7 +236,7 @@ const SuccessOverlay = ({
       {saleData?.loyaltyCustomerName && (
         <div
           className="flex items-center gap-3 justify-center bg-primary/5 border border-primary/20 rounded-xl px-6 py-3"
-          style={{ animation: 'float-up 0.5s ease-out 0.6s both' }}
+          style={{ animation: "float-up 0.5s ease-out 0.6s both" }}
         >
           <Heart className="h-5 w-5 text-primary animate-pulse" />
           <span className="text-base font-semibold text-foreground">
@@ -255,7 +247,7 @@ const SuccessOverlay = ({
 
       {/* Logo */}
       {logoUrl && (
-        <div style={{ animation: 'float-up 0.5s ease-out 0.8s both' }}>
+        <div style={{ animation: "float-up 0.5s ease-out 0.8s both" }}>
           <img src={logoUrl} alt={storeName} className="h-14 mx-auto opacity-50 mt-4" />
         </div>
       )}
@@ -281,10 +273,7 @@ const CustomerDisplayPage = () => {
   const { data: allProducts = [] } = useProducts();
 
   // Products with images for carousel
-  const productsWithImages = useMemo(
-    () => allProducts.filter((p) => p.is_active && p.image_url),
-    [allProducts]
-  );
+  const productsWithImages = useMemo(() => allProducts.filter((p) => p.is_active && p.image_url), [allProducts]);
 
   // Map product IDs to their active campaigns
   const productCampaignMap = useMemo(() => {
@@ -309,9 +298,7 @@ const CustomerDisplayPage = () => {
   // Active campaigns for sidebar
   const activeCampaigns = useMemo(() => {
     const today = getLocalDateString();
-    return campaigns.filter(
-      (c) => c.is_active && c.start_date <= today && c.end_date >= today
-    );
+    return campaigns.filter((c) => c.is_active && c.start_date <= today && c.end_date >= today);
   }, [campaigns]);
 
   // Clock
@@ -335,7 +322,6 @@ const CustomerDisplayPage = () => {
       } else if (msg.type === "sale-complete") {
         setSaleCompleteData(msg.payload || null);
         setShowSuccess(true);
-        playSuccessSound();
         if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
         successTimeoutRef.current = setTimeout(() => {
           setShowSuccess(false);
@@ -383,11 +369,7 @@ const CustomerDisplayPage = () => {
   if (showSuccess) {
     return (
       <div ref={containerRef}>
-        <SuccessOverlay
-          saleData={saleCompleteData}
-          logoUrl={logoUrl || undefined}
-          storeName={storeName}
-        />
+        <SuccessOverlay saleData={saleCompleteData} logoUrl={logoUrl || undefined} storeName={storeName} />
       </div>
     );
   }
@@ -400,7 +382,7 @@ const CustomerDisplayPage = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {logoUrl ? (
-              <img src={logoUrl} alt={storeName} className="h-14 object-contain" />
+              <img src={logoUrl} alt={storeName} className="h-24 object-contain" />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
                 <ShoppingCart className="h-6 w-6 text-primary-foreground" />
@@ -418,9 +400,7 @@ const CustomerDisplayPage = () => {
               ) : (
                 <WifiOff className="h-4 w-4 text-destructive" />
               )}
-              <span className="text-[10px] text-muted-foreground">
-                {isConnected ? "Bağlı" : "Bağlantı Yok"}
-              </span>
+              <span className="text-[10px] text-muted-foreground">{isConnected ? "Bağlı" : "Bağlantı Yok"}</span>
             </div>
 
             {/* Clock */}
@@ -437,17 +417,8 @@ const CustomerDisplayPage = () => {
             </div>
 
             {/* Fullscreen toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleFullscreen}
-              className="h-9 w-9 rounded-lg"
-            >
-              {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
-              ) : (
-                <Maximize className="h-4 w-4" />
-              )}
+            <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-9 w-9 rounded-lg">
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -498,9 +469,7 @@ const CustomerDisplayPage = () => {
                         {item.campaignName && (
                           <div className="mt-1.5 flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-2.5 py-1">
                             <Sparkles className="h-3.5 w-3.5 text-destructive shrink-0 animate-pulse" />
-                            <span className="text-xs font-bold text-destructive truncate">
-                              {item.campaignName}
-                            </span>
+                            <span className="text-xs font-bold text-destructive truncate">{item.campaignName}</span>
                           </div>
                         )}
                         {(item.discount > 0 || item.manualDiscount > 0) && (
@@ -548,9 +517,7 @@ const CustomerDisplayPage = () => {
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold text-foreground">TOPLAM</span>
-                  <span className="text-3xl font-black text-primary">
-                    ₺{fmt(data.grandTotal)}
-                  </span>
+                  <span className="text-3xl font-black text-primary">₺{fmt(data.grandTotal)}</span>
                 </div>
 
                 {/* Loyalty info */}
@@ -560,11 +527,10 @@ const CustomerDisplayPage = () => {
                       <div className="flex items-center gap-2">
                         <Heart className="h-5 w-5 text-primary" />
                         <div>
-                          <p className="font-semibold text-foreground text-sm">
-                            {data.loyaltyCustomer.full_name}
-                          </p>
+                          <p className="font-semibold text-foreground text-sm">{data.loyaltyCustomer.full_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Mevcut Puan: <span className="font-semibold text-primary">{data.loyaltyCustomer.total_points}</span>
+                            Mevcut Puan:{" "}
+                            <span className="font-semibold text-primary">{data.loyaltyCustomer.total_points}</span>
                           </p>
                         </div>
                       </div>
@@ -644,7 +610,10 @@ const CustomerDisplayPage = () => {
                   <div className="mt-6 w-full overflow-hidden rounded-xl bg-primary/5 border border-primary/20 py-3">
                     <div className="flex animate-marquee whitespace-nowrap gap-12">
                       {[...activeCampaigns, ...activeCampaigns].map((c, i) => (
-                        <span key={`${c.id}-${i}`} className="inline-flex items-center gap-2 text-sm text-primary font-medium">
+                        <span
+                          key={`${c.id}-${i}`}
+                          className="inline-flex items-center gap-2 text-sm text-primary font-medium"
+                        >
                           <span className="text-base">{getCampaignTypeIcon(c.type)}</span>
                           <span>{c.name}</span>
                           <span className="text-muted-foreground">—</span>
