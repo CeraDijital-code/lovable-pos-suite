@@ -391,10 +391,19 @@ const CashRegisterPage = () => {
               saleTotal: grandTotal,
             });
           }
-          // Notify customer display
+          // Notify customer display BEFORE clearing cart
           try {
             const ch = new BroadcastChannel("pos-customer-display");
-            ch.postMessage({ type: "sale-complete" });
+            ch.postMessage({
+              type: "sale-complete",
+              payload: {
+                earnedPoints: earnedPointsInfo?.totalPoints || 0,
+                totalDiscount: Math.round(totalDiscount * 100) / 100,
+                grandTotal: Math.round(grandTotal * 100) / 100,
+                totalItems: cart.reduce((s, i) => s + i.quantity, 0),
+                loyaltyCustomerName: loyaltyCustomer?.full_name || null,
+              },
+            });
             ch.close();
           } catch {}
           setCart([]);

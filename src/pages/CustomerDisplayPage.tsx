@@ -61,6 +61,14 @@ interface CustomerDisplayData {
   lastAction: string | null;
 }
 
+interface SaleCompleteData {
+  earnedPoints: number;
+  totalDiscount: number;
+  grandTotal: number;
+  totalItems: number;
+  loyaltyCustomerName: string | null;
+}
+
 const emptyData: CustomerDisplayData = {
   cart: [],
   subtotal: 0,
@@ -78,36 +86,177 @@ const fmt = (n: number) =>
 
 // ── Sub-components ─────────────────────────────────────
 
+const ConfettiEffect = () => {
+  const confetti = useMemo(() => {
+    return Array.from({ length: 80 }, (_, i) => {
+      const colors = [
+        'hsl(var(--primary))',
+        'hsl(var(--success))',
+        'hsl(var(--warning))',
+        'hsl(var(--destructive))',
+        '#FFD700',
+        '#FF69B4',
+        '#00CED1',
+      ];
+      return {
+        id: i,
+        left: `${Math.random() * 100}%`,
+        delay: `${Math.random() * 2}s`,
+        duration: `${2 + Math.random() * 3}s`,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+        rotation: Math.random() * 360,
+        drift: (Math.random() - 0.5) * 200,
+      };
+    });
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-20px) translateX(0px) rotate(0deg) scale(1); opacity: 1; }
+          50% { opacity: 1; }
+          100% { transform: translateY(100vh) translateX(var(--drift)) rotate(720deg) scale(0.3); opacity: 0; }
+        }
+        @keyframes success-pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 hsl(var(--success) / 0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 0 40px 20px hsl(var(--success) / 0); }
+        }
+        @keyframes float-up {
+          0% { transform: translateY(20px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes star-burst {
+          0% { transform: scale(0) rotate(0deg); opacity: 0; }
+          50% { transform: scale(1.3) rotate(180deg); opacity: 1; }
+          100% { transform: scale(1) rotate(360deg); opacity: 1; }
+        }
+      `}</style>
+      {confetti.map((c) => (
+        <div
+          key={c.id}
+          className="absolute top-0 rounded-sm"
+          style={{
+            left: c.left,
+            width: c.size,
+            height: c.size * 0.6,
+            backgroundColor: c.color,
+            animation: `confetti-fall ${c.duration} ${c.delay} ease-in forwards`,
+            ['--drift' as string]: `${c.drift}px`,
+            transform: `rotate(${c.rotation}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const SuccessOverlay = ({
-  earnedPoints,
+  saleData,
   logoUrl,
   storeName,
 }: {
-  earnedPoints: number | null;
+  saleData: SaleCompleteData | null;
   logoUrl: string | undefined;
   storeName: string;
 }) => (
-  <div className="h-screen flex flex-col items-center justify-center bg-background">
-    <div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
-      <div className="mx-auto h-28 w-28 rounded-full bg-success/20 flex items-center justify-center">
-        <Sparkles className="h-14 w-14 text-success animate-pulse" />
+  <div className="h-screen flex flex-col items-center justify-center bg-background relative overflow-hidden">
+    <ConfettiEffect />
+    <SnowEffect />
+
+    {/* Radial glow background */}
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--success)/0.08)_0%,transparent_70%)]" />
+
+    <div className="relative z-10 text-center space-y-8 px-8">
+      {/* Animated success icon */}
+      <div
+        className="mx-auto h-32 w-32 rounded-full bg-success/20 border-2 border-success/40 flex items-center justify-center"
+        style={{ animation: 'success-pulse 2s infinite, star-burst 0.6s ease-out' }}
+      >
+        <Sparkles className="h-16 w-16 text-success" />
       </div>
-      <div>
-        <h1 className="text-4xl font-bold text-foreground">Teşekkürler!</h1>
-        <p className="text-xl text-muted-foreground mt-2">İyi günler dileriz</p>
+
+      {/* Thank you text with shimmer */}
+      <div style={{ animation: 'float-up 0.5s ease-out 0.2s both' }}>
+        <h1
+          className="text-5xl font-black text-foreground"
+          style={{
+            background: 'linear-gradient(90deg, hsl(var(--foreground)), hsl(var(--primary)), hsl(var(--foreground)))',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'shimmer 3s linear infinite',
+          }}
+        >
+          Teşekkürler!
+        </h1>
+        <p className="text-xl text-muted-foreground mt-3">
+          Alışverişiniz tamamlandı, iyi günler dileriz ✨
+        </p>
       </div>
-      {earnedPoints && earnedPoints > 0 && (
-        <div className="bg-primary/10 border border-primary/20 rounded-2xl px-8 py-4 inline-block">
-          <div className="flex items-center gap-3">
-            <Star className="h-6 w-6 text-primary" />
-            <span className="text-lg font-semibold text-primary">
-              +{earnedPoints} Puan Kazandınız!
-            </span>
+
+      {/* Transaction summary cards */}
+      {saleData && (
+        <div
+          className="flex flex-wrap items-center justify-center gap-4 mt-6"
+          style={{ animation: 'float-up 0.5s ease-out 0.4s both' }}
+        >
+          {/* Total */}
+          <div className="bg-card/80 backdrop-blur border rounded-2xl px-6 py-4 min-w-[140px]">
+            <div className="flex items-center gap-2 justify-center mb-1">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              <span className="text-xs text-muted-foreground">Toplam</span>
+            </div>
+            <span className="text-2xl font-black text-primary">₺{fmt(saleData.grandTotal)}</span>
           </div>
+
+          {/* Discount */}
+          {saleData.totalDiscount > 0 && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-2xl px-6 py-4 min-w-[140px]">
+              <div className="flex items-center gap-2 justify-center mb-1">
+                <Tag className="h-4 w-4 text-destructive" />
+                <span className="text-xs text-destructive/80">Kazancınız</span>
+              </div>
+              <span className="text-2xl font-black text-destructive">₺{fmt(saleData.totalDiscount)}</span>
+            </div>
+          )}
+
+          {/* Points earned */}
+          {saleData.earnedPoints > 0 && (
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl px-6 py-4 min-w-[140px]">
+              <div className="flex items-center gap-2 justify-center mb-1">
+                <Star className="h-4 w-4 text-primary" />
+                <span className="text-xs text-primary/80">Kazanılan Puan</span>
+              </div>
+              <span className="text-2xl font-black text-primary">+{saleData.earnedPoints}</span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Loyalty customer greeting */}
+      {saleData?.loyaltyCustomerName && (
+        <div
+          className="flex items-center gap-3 justify-center bg-primary/5 border border-primary/20 rounded-xl px-6 py-3"
+          style={{ animation: 'float-up 0.5s ease-out 0.6s both' }}
+        >
+          <Heart className="h-5 w-5 text-primary animate-pulse" />
+          <span className="text-base font-semibold text-foreground">
+            Tekrar bekleriz, <span className="text-primary">{saleData.loyaltyCustomerName}</span>!
+          </span>
+        </div>
+      )}
+
+      {/* Logo */}
       {logoUrl && (
-        <img src={logoUrl} alt={storeName} className="h-12 mx-auto opacity-60 mt-8" />
+        <div style={{ animation: 'float-up 0.5s ease-out 0.8s both' }}>
+          <img src={logoUrl} alt={storeName} className="h-14 mx-auto opacity-50 mt-4" />
+        </div>
       )}
     </div>
   </div>
@@ -118,9 +267,11 @@ const SuccessOverlay = ({
 const CustomerDisplayPage = () => {
   const [data, setData] = useState<CustomerDisplayData>(emptyData);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [saleCompleteData, setSaleCompleteData] = useState<SaleCompleteData | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { logoUrl, logoLightUrl, logoDarkUrl } = useThemeLogo();
@@ -176,14 +327,19 @@ const CustomerDisplayPage = () => {
     channel.onmessage = (event) => {
       const msg = event.data;
       if (msg.type === "cart-update") {
-        setData(msg.payload);
-        setShowSuccess(false);
+        // Ignore cart updates while showing success screen
+        if (!showSuccess) {
+          setData(msg.payload);
+        }
       } else if (msg.type === "sale-complete") {
+        setSaleCompleteData(msg.payload || null);
         setShowSuccess(true);
-        setTimeout(() => {
+        if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+        successTimeoutRef.current = setTimeout(() => {
           setShowSuccess(false);
+          setSaleCompleteData(null);
           setData(emptyData);
-        }, 4000);
+        }, 6000);
       }
     };
 
@@ -226,7 +382,7 @@ const CustomerDisplayPage = () => {
     return (
       <div ref={containerRef}>
         <SuccessOverlay
-          earnedPoints={data.earnedPoints}
+          saleData={saleCompleteData}
           logoUrl={logoUrl || undefined}
           storeName={storeName}
         />
