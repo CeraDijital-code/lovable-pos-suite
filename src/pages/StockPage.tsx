@@ -19,8 +19,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Package, Plus, Search, Filter, Edit, Trash2, PackagePlus, PackageMinus, Loader2, Tag, ImagePlus,
+  Package, Plus, Search, Filter, Edit, Trash2, PackagePlus, PackageMinus, Loader2, Tag, ImagePlus, Monitor,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   useProducts, useCategories, useCreateProduct, useUpdateProduct,
   useDeleteProduct, useUpdateStock, useCreateCategory, useDeleteCategory,
@@ -281,8 +282,9 @@ const StockPage = () => {
                     <TableHead>Kategori</TableHead>
                     <TableHead className="text-right">Fiyat</TableHead>
                     <TableHead className="text-right">Stok</TableHead>
-                    <TableHead>Durum</TableHead>
-                    <TableHead className="text-right">İşlem</TableHead>
+                     <TableHead>Durum</TableHead>
+                     <TableHead className="text-center">Carousel</TableHead>
+                     <TableHead className="text-right">İşlem</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -310,6 +312,15 @@ const StockPage = () => {
                         ) : (
                           <Badge variant="outline" className="text-xs">Yeterli</Badge>
                         )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!(product as any).show_in_carousel}
+                          onCheckedChange={(checked) => {
+                            updateProduct.mutate({ id: product.id, show_in_carousel: checked } as any);
+                          }}
+                          title="Müşteri ekranında göster"
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
