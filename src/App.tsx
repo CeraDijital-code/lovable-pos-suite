@@ -19,6 +19,7 @@ import StaffPage from "./pages/StaffPage";
 import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
 import SuppliersPage from "./pages/SuppliersPage";
+import CustomerDisplayPage from "./pages/CustomerDisplayPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ const AppRoutes = () => (
     <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/tedarikciler" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
     <Route path="/ayarlar" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/musteri-ekrani" element={<CustomerDisplayPage />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
