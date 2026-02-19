@@ -16,6 +16,13 @@ import {
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useCampaigns, getCampaignDetails, getCampaignTypeIcon } from "@/hooks/useCampaigns";
 import { getLocalDateString } from "@/hooks/useCampaigns";
+import { useProducts } from "@/hooks/useProducts";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 interface CustomerCartItem {
   productId: string;
@@ -64,6 +71,13 @@ const CustomerDisplayPage = () => {
 
   const { data: settings } = useStoreSettings();
   const { data: campaigns = [] } = useCampaigns();
+  const { data: allProducts = [] } = useProducts();
+
+  // Products with images for carousel
+  const productsWithImages = useMemo(
+    () => allProducts.filter((p) => p.is_active && p.image_url),
+    [allProducts]
+  );
 
   // Active campaigns for display
   const activeCampaigns = useMemo(() => {
@@ -304,9 +318,9 @@ const CustomerDisplayPage = () => {
               </div>
             </>
           ) : (
-            /* Empty state */
+            /* Empty state with product carousel */
             <div className="flex-1 flex flex-col items-center justify-center p-8">
-              <div className="text-center space-y-6 max-w-md">
+              <div className="text-center space-y-6 max-w-lg w-full">
                 {logoUrl ? (
                   <img src={logoUrl} alt={storeName} className="h-20 mx-auto opacity-80" />
                 ) : (
@@ -317,9 +331,42 @@ const CustomerDisplayPage = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">{storeName}</h2>
                   <p className="text-muted-foreground mt-2">
-                    Ürünler tarandığında burada görüntülenecektir
+                    Hoş Geldiniz
                   </p>
                 </div>
+
+                {/* Product image carousel */}
+                {productsWithImages.length > 0 && (
+                  <div className="mt-8 w-full">
+                    <Carousel
+                      opts={{ loop: true, align: "center" }}
+                      plugins={[Autoplay({ delay: 3500, stopOnInteraction: false })]}
+                      className="w-full"
+                    >
+                      <CarouselContent>
+                        {productsWithImages.map((product) => (
+                          <CarouselItem key={product.id} className="basis-full md:basis-1/2 lg:basis-1/3">
+                            <div className="p-2">
+                              <div className="rounded-2xl overflow-hidden border bg-card shadow-sm">
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={product.image_url!}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="p-3 text-center">
+                                  <p className="font-semibold text-foreground text-sm truncate">{product.name}</p>
+                                  <p className="text-primary font-bold text-lg mt-1">₺{fmt(product.price)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                    </Carousel>
+                  </div>
+                )}
               </div>
             </div>
           )}
