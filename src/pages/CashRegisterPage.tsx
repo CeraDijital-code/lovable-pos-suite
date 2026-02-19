@@ -60,7 +60,8 @@ function applyCampaigns(
   items: CartItem[],
   campaigns: CampaignWithProducts[]
 ): CartItem[] {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const activeCampaigns = campaigns.filter(
     (c) => c.is_active && c.start_date <= today && c.end_date >= today
   );

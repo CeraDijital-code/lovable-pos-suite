@@ -236,7 +236,7 @@ export function calculateEarnedPoints(
   saleTotal: number
 ): { totalPoints: number; breakdown: { ruleName: string; points: number }[] } {
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const dayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][today.getDay()];
 
   const activeRules = rules.filter(
