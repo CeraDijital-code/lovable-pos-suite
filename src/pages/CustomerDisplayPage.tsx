@@ -20,6 +20,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { useThemeLogo } from "@/hooks/useThemeLogo";
 import { useCampaigns, getCampaignDetails, getCampaignTypeIcon } from "@/hooks/useCampaigns";
 import { getLocalDateString } from "@/hooks/useCampaigns";
 import { useProducts } from "@/hooks/useProducts";
@@ -120,6 +121,7 @@ const CustomerDisplayPage = () => {
   const [isConnected, setIsConnected] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const { logoUrl, logoLightUrl, logoDarkUrl } = useThemeLogo();
   const { data: settings } = useStoreSettings();
   const { data: campaigns = [] } = useCampaigns();
   const { data: allProducts = [] } = useProducts();
@@ -214,7 +216,6 @@ const CustomerDisplayPage = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const logoUrl = settings?.logo_dark_url || settings?.logo_light_url;
   const storeName = settings?.store_name || "TekelPOS";
   const hasItems = data.cart.length > 0;
   const totalItems = data.cart.reduce((s, i) => s + i.quantity, 0);
