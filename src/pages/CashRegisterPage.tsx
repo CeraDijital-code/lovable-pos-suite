@@ -143,6 +143,7 @@ const CashRegisterPage = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [page, setPage] = useState(0);
+  const [quantityMultiplier, setQuantityMultiplier] = useState(1);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   // Modals
@@ -203,7 +204,7 @@ const CashRegisterPage = () => {
   );
 
   const addToCart = useCallback(
-    (product: Product) => {
+    (product: Product, qty: number = 1) => {
       setCart((prev) => {
         const existing = prev.find((i) => i.productId === product.id);
         let newCart;
@@ -212,8 +213,8 @@ const CashRegisterPage = () => {
             i.productId === product.id
               ? {
                   ...i,
-                  quantity: i.quantity + 1,
-                  total: i.unitPrice * (i.quantity + 1),
+                  quantity: i.quantity + qty,
+                  total: i.unitPrice * (i.quantity + qty),
                 }
               : i
           );
@@ -226,12 +227,12 @@ const CashRegisterPage = () => {
               name: product.name,
               image_url: product.image_url,
               unitPrice: product.price,
-              quantity: 1,
+              quantity: qty,
               discount: 0,
               manualDiscount: 0,
               campaignId: null,
               campaignName: null,
-              total: product.price,
+              total: product.price * qty,
             },
           ];
         }
@@ -245,8 +246,9 @@ const CashRegisterPage = () => {
     if (!barcodeInput.trim()) return;
     const product = allProducts.find((p) => p.barcode === barcodeInput.trim());
     if (product) {
-      addToCart(product);
+      addToCart(product, quantityMultiplier);
       setBarcodeInput("");
+      setQuantityMultiplier(1);
     }
     barcodeRef.current?.focus();
   };
@@ -522,6 +524,47 @@ const CashRegisterPage = () => {
           {/* Barcode + Search combined */}
           <div className="p-3 bg-card/30 border-b space-y-2 shrink-0">
             <div className="flex gap-2">
+              {/* Quantity multiplier */}
+              <div className="flex items-center gap-1 shrink-0">
+                <div className="relative">
+                  <Input
+                    className={`h-12 w-16 text-center text-lg font-bold border-2 transition-colors ${
+                      quantityMultiplier > 1
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-muted"
+                    }`}
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={quantityMultiplier}
+                    onChange={(e) => setQuantityMultiplier(Math.max(1, parseInt(e.target.value) || 1))}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  {quantityMultiplier > 1 && (
+                    <span className="absolute -top-2 -right-1 text-[9px] font-semibold bg-primary text-primary-foreground px-1 rounded">
+                      ×{quantityMultiplier}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {[2, 3, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setQuantityMultiplier(n);
+                        barcodeRef.current?.focus();
+                      }}
+                      className={`h-3.5 px-2 text-[9px] font-bold rounded transition-colors ${
+                        quantityMultiplier === n
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-muted-foreground/20 text-muted-foreground"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="relative flex-1">
                 <ScanBarcode className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60" />
                 <Input
@@ -541,7 +584,7 @@ const CashRegisterPage = () => {
                 onClick={handleBarcodeScan}
               >
                 <Plus className="h-4 w-4" />
-                Ekle
+                {quantityMultiplier > 1 ? `${quantityMultiplier}× Ekle` : "Ekle"}
               </Button>
             </div>
             <div className="relative">
@@ -574,7 +617,10 @@ const CashRegisterPage = () => {
                   return (
                     <button
                       key={product.id}
-                      onClick={() => addToCart(product)}
+                      onClick={() => {
+                        addToCart(product, quantityMultiplier);
+                        if (quantityMultiplier > 1) setQuantityMultiplier(1);
+                      }}
                       className={`relative flex flex-col items-center gap-1 rounded-xl border p-2.5 transition-all active:scale-[0.97] hover:shadow-md touch-manipulation ${
                         inCart
                           ? "border-primary/50 bg-primary/5 shadow-sm"
