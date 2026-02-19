@@ -104,6 +104,10 @@ export default {
           "0%, 100%": { boxShadow: "0 0 0 0 hsl(36 80% 50% / 0.2)" },
           "50%": { boxShadow: "0 0 0 8px hsl(36 80% 50% / 0)" },
         },
+        marquee: {
+          "0%": { transform: "translateX(0%)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -112,6 +116,7 @@ export default {
         "slide-in": "slide-in 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s infinite",
+        marquee: "marquee 20s linear infinite",
       },
     },
   },
