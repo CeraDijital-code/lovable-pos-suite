@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -333,6 +333,40 @@ const CashRegisterPage = () => {
     return calculateEarnedPoints(cart, pointRules, grandTotal);
   }, [loyaltyCustomer, cart, pointRules, grandTotal]);
 
+  // Broadcast cart state to customer display
+  useEffect(() => {
+    try {
+      const channel = new BroadcastChannel("pos-customer-display");
+      channel.postMessage({
+        type: "cart-update",
+        payload: {
+          cart: cart.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            image_url: i.image_url,
+            unitPrice: i.unitPrice,
+            quantity: i.quantity,
+            discount: i.discount,
+            manualDiscount: i.manualDiscount || 0,
+            campaignName: i.campaignName,
+            total: i.total,
+          })),
+          subtotal,
+          campaignDiscount,
+          manualDiscount: manualDiscountTotal,
+          totalDiscount,
+          grandTotal,
+          loyaltyCustomer: loyaltyCustomer
+            ? { full_name: loyaltyCustomer.full_name, total_points: loyaltyCustomer.total_points }
+            : null,
+          earnedPoints: earnedPointsInfo?.totalPoints || null,
+          lastAction: null,
+        },
+      });
+      channel.close();
+    } catch {}
+  }, [cart, subtotal, campaignDiscount, manualDiscountTotal, totalDiscount, grandTotal, loyaltyCustomer, earnedPointsInfo]);
+
   const handlePayment = (method: string) => {
     if (cart.length === 0) return;
     completeSale.mutate(
@@ -355,6 +389,12 @@ const CashRegisterPage = () => {
               saleTotal: grandTotal,
             });
           }
+          // Notify customer display
+          try {
+            const ch = new BroadcastChannel("pos-customer-display");
+            ch.postMessage({ type: "sale-complete" });
+            ch.close();
+          } catch {}
           setCart([]);
           setPaymentModal(null);
           setLoyaltyCustomer(null);
@@ -441,6 +481,15 @@ const CashRegisterPage = () => {
           </Badge>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] gap-1"
+            onClick={() => window.open("/musteri-ekrani", "customer-display", "width=1024,height=768")}
+          >
+            <ShoppingCart className="h-3 w-3" />
+            Müşteri Ekranı
+          </Button>
           <span className="text-xs text-muted-foreground">
             {profile?.full_name}
           </span>
