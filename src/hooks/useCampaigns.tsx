@@ -63,8 +63,15 @@ export function getCampaignDetails(c: Campaign): string {
   return "";
 }
 
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function getCampaignStatus(c: Campaign): { label: string; variant: "default" | "secondary" | "outline"; color: string } {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
   if (!c.is_active) return { label: "Pasif", variant: "secondary", color: "text-muted-foreground" };
   if (c.end_date < today) return { label: "Süresi Dolmuş", variant: "secondary", color: "text-destructive" };
   if (c.start_date > today) return { label: "Planlandı", variant: "outline", color: "text-info" };
