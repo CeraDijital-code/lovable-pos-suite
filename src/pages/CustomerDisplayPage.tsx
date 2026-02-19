@@ -30,6 +30,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import TypewriterQuotes from "@/components/customer-display/TypewriterQuotes";
 
 // ── Types ──────────────────────────────────────────────
 interface CustomerCartItem {
@@ -250,6 +251,8 @@ const CustomerDisplayPage = () => {
               <p className="text-xs text-muted-foreground">Hoş Geldiniz</p>
             </div>
           </div>
+
+          <TypewriterQuotes />
 
           <div className="flex items-center gap-4">
             {/* Connection status */}
