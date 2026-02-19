@@ -145,6 +145,8 @@ const CashRegisterPage = () => {
   const [page, setPage] = useState(0);
   const [quantityMultiplier, setQuantityMultiplier] = useState(1);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const quantityRef = useRef<HTMLInputElement>(null);
+  const loyaltyRef = useRef<HTMLInputElement>(null);
 
   // Modals
   const [discountModal, setDiscountModal] = useState<{
@@ -480,6 +482,40 @@ const CashRegisterPage = () => {
 
   const totalItemCount = cart.reduce((s, i) => s + i.quantity, 0);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Skip if inside an input/textarea already focused
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === "INPUT" || tag === "TEXTAREA";
+
+      // * key → focus quantity multiplier
+      if (e.key === "*") {
+        e.preventDefault();
+        quantityRef.current?.focus();
+        quantityRef.current?.select();
+        return;
+      }
+
+      // F2 → focus customer/loyalty search
+      if (e.key === "F2") {
+        e.preventDefault();
+        loyaltyRef.current?.focus();
+        return;
+      }
+
+      // Numpad digits while quantity input is focused → already handled natively
+      // After typing quantity, Enter → go back to barcode
+      if (e.key === "Enter" && document.activeElement === quantityRef.current) {
+        e.preventDefault();
+        barcodeRef.current?.focus();
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top bar */}
@@ -495,6 +531,15 @@ const CashRegisterPage = () => {
           <Badge variant="outline" className="text-[10px] font-normal">
             Kasa
           </Badge>
+          <Separator orientation="vertical" className="h-4 mx-1" />
+          <div className="hidden md:flex items-center gap-2 text-[10px] text-muted-foreground">
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[9px]">*</kbd>
+            <span>Miktar</span>
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[9px] ml-1.5">F2</kbd>
+            <span>Müşteri</span>
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[9px] ml-1.5">Enter</kbd>
+            <span>Barkod</span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -528,6 +573,7 @@ const CashRegisterPage = () => {
               <div className="flex items-center gap-1 shrink-0">
                 <div className="relative">
                   <Input
+                    ref={quantityRef}
                     className={`h-12 w-16 text-center text-lg font-bold border-2 transition-colors ${
                       quantityMultiplier > 1
                         ? "border-primary bg-primary/10 text-primary"
@@ -539,6 +585,12 @@ const CashRegisterPage = () => {
                     value={quantityMultiplier}
                     onChange={(e) => setQuantityMultiplier(Math.max(1, parseInt(e.target.value) || 1))}
                     onFocus={(e) => e.target.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        barcodeRef.current?.focus();
+                      }
+                    }}
                   />
                   {quantityMultiplier > 1 && (
                     <span className="absolute -top-2 -right-1 text-[9px] font-semibold bg-primary text-primary-foreground px-1 rounded">
@@ -769,8 +821,9 @@ const CashRegisterPage = () => {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
+                    ref={loyaltyRef}
                     className="pl-8 pr-10 h-9 text-xs"
-                    placeholder="Müşteri ara (telefon, isim veya QR kod)..."
+                    placeholder="Müşteri ara (telefon, isim veya QR kod)... [F2]"
                     value={loyaltySearch}
                     onChange={(e) => {
                       const val = e.target.value;
