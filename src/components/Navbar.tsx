@@ -4,6 +4,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUserRoles, type AppRole } from "@/hooks/useRoles";
 import { useRolePermissions, hasAccess } from "@/config/rbac";
+import { useThemeLogo } from "@/hooks/useThemeLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,6 +146,7 @@ export function Navbar() {
   const { data: userRoles = [] } = useCurrentUserRoles();
   const { data: permissions = [] } = useRolePermissions();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logoUrl } = useThemeLogo();
 
   const visibleMobileItems = allNavItems.filter((item) => hasAccess(permissions, userRoles, item.path));
 
@@ -166,10 +168,14 @@ export function Navbar() {
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
               <SheetHeader className="p-4 border-b">
-                <SheetTitle className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                    <Wallet className="h-5 w-5 text-primary-foreground" />
-                  </div>
+              <SheetTitle className="flex items-center gap-2.5">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="h-9 object-contain" />
+                  ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                      <Wallet className="h-5 w-5 text-primary-foreground" />
+                    </div>
+                  )}
                   <div className="flex flex-col">
                     <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
                     <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
@@ -220,9 +226,13 @@ export function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Wallet className="h-5 w-5 text-primary-foreground" />
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-9 object-contain" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                <Wallet className="h-5 w-5 text-primary-foreground" />
+              </div>
+            )}
             <div className="flex flex-col">
               <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
               <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
