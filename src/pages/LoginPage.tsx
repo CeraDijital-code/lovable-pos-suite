@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Wallet, LogIn, Eye, EyeOff, ShieldCheck, BarChart3, Package, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useThemeLogo } from "@/hooks/useThemeLogo";
 import loginBg from "@/assets/login-bg.jpg";
 
 const TYPEWRITER_PHRASES = [
@@ -59,6 +60,7 @@ const LoginPage = () => {
   const { signIn } = useAuth();
   const { toast } = useToast();
   const typedText = useTypewriter(TYPEWRITER_PHRASES);
+  const { logoUrl } = useThemeLogo();
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,10 +106,13 @@ const LoginPage = () => {
       <div className="relative z-10 hidden lg:flex lg:w-[55%] flex-col justify-between p-12">
         {/* Top Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
-            <Wallet className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-foreground">TekelPOS</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="h-11 object-contain" />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
+              <Wallet className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
         </div>
 
         {/* Center Content */}
@@ -164,10 +169,16 @@ const LoginPage = () => {
         <div className="w-full max-w-[420px] animate-fade-in">
           {/* Mobile Logo */}
           <div className="mb-8 text-center lg:hidden">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
-              <Wallet className="h-7 w-7 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">TekelPOS</h1>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="mx-auto mb-3 h-14 object-contain" />
+            ) : (
+              <>
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
+                  <Wallet className="h-7 w-7 text-primary-foreground" />
+                </div>
+                <h1 className="text-2xl font-bold text-foreground">TekelPOS</h1>
+              </>
+            )}
             <p className="text-sm text-muted-foreground mt-1">ERP Yönetim Sistemi</p>
           </div>
 

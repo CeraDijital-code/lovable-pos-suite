@@ -172,14 +172,16 @@ export function Navbar() {
                   {logoUrl ? (
                     <img src={logoUrl} alt="Logo" className="h-9 object-contain" />
                   ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                      <Wallet className="h-5 w-5 text-primary-foreground" />
-                    </div>
+                    <>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                        <Wallet className="h-5 w-5 text-primary-foreground" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
+                        <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
+                      </div>
+                    </>
                   )}
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
-                    <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
-                  </div>
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 p-3">
@@ -229,14 +231,16 @@ export function Navbar() {
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="h-9 object-contain" />
             ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <Wallet className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+                  <Wallet className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
+                  <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
+                </div>
+              </>
             )}
-            <div className="flex flex-col">
-              <span className="text-sm font-bold leading-none tracking-tight">TekelPOS</span>
-              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">ERP Sistemi</span>
-            </div>
           </Link>
         </div>
 
