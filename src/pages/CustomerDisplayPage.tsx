@@ -335,16 +335,19 @@ const CustomerDisplayPage = () => {
                           <span className="text-sm text-muted-foreground">
                             {item.quantity} × ₺{fmt(item.unitPrice)}
                           </span>
-                          {item.campaignName && (
-                            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary gap-1">
-                              <Tag className="h-2.5 w-2.5" />
-                              {item.campaignName}
-                            </Badge>
-                          )}
                         </div>
+                        {item.campaignName && (
+                          <div className="mt-1.5 flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-2.5 py-1">
+                            <Sparkles className="h-3.5 w-3.5 text-destructive shrink-0 animate-pulse" />
+                            <span className="text-xs font-bold text-destructive truncate">
+                              {item.campaignName}
+                            </span>
+                          </div>
+                        )}
                         {(item.discount > 0 || item.manualDiscount > 0) && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-xs text-destructive font-medium">
+                          <div className="mt-1 flex items-center gap-1.5 text-destructive">
+                            <Percent className="h-3 w-3" />
+                            <span className="text-sm font-bold">
                               -₺{fmt(item.discount + item.manualDiscount)} indirim
                             </span>
                           </div>
