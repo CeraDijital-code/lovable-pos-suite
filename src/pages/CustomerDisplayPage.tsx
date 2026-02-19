@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import TypewriterQuotes from "@/components/customer-display/TypewriterQuotes";
+import SnowEffect from "@/components/customer-display/SnowEffect";
 
 // ── Types ──────────────────────────────────────────────
 interface CustomerCartItem {
@@ -234,22 +235,19 @@ const CustomerDisplayPage = () => {
   }
 
   return (
-    <div ref={containerRef} className="h-screen flex flex-col bg-background overflow-hidden">
+    <div ref={containerRef} className="h-screen flex flex-col bg-background overflow-hidden relative">
+      <SnowEffect />
       {/* Header */}
-      <div className="shrink-0 border-b bg-card/95 backdrop-blur px-6 py-3">
+      <div className="shrink-0 border-b bg-card/95 backdrop-blur px-6 py-3 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {logoUrl ? (
-              <img src={logoUrl} alt={storeName} className="h-10 object-contain" />
+              <img src={logoUrl} alt={storeName} className="h-14 object-contain" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-                <ShoppingCart className="h-5 w-5 text-primary-foreground" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+                <ShoppingCart className="h-6 w-6 text-primary-foreground" />
               </div>
             )}
-            <div>
-              <h1 className="text-lg font-bold text-foreground">{storeName}</h1>
-              <p className="text-xs text-muted-foreground">Hoş Geldiniz</p>
-            </div>
           </div>
 
           <TypewriterQuotes />
@@ -297,7 +295,7 @@ const CustomerDisplayPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative z-10">
         {/* Left: Cart items or idle */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {hasItems ? (
@@ -428,16 +426,12 @@ const CustomerDisplayPage = () => {
             <div className="flex-1 flex flex-col items-center justify-center p-8">
               <div className="text-center space-y-6 w-full max-w-2xl">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={storeName} className="h-24 mx-auto opacity-80" />
+                  <img src={logoUrl} alt={storeName} className="h-36 mx-auto opacity-90" />
                 ) : (
-                  <div className="mx-auto h-24 w-24 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <ShoppingCart className="h-12 w-12 text-primary/60" />
+                  <div className="mx-auto h-28 w-28 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <ShoppingCart className="h-14 w-14 text-primary/60" />
                   </div>
                 )}
-                <div>
-                  <h2 className="text-3xl font-bold text-foreground">{storeName}</h2>
-                  <p className="text-lg text-muted-foreground mt-1">Hoş Geldiniz</p>
-                </div>
 
                 {/* Product carousel with campaign badges */}
                 {productsWithImages.length > 0 && (
