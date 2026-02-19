@@ -372,25 +372,63 @@ const SettingsPage = () => {
                 <Separator />
                 <div>
                   <Label className="text-xs text-muted-foreground uppercase tracking-wider">Fiş Önizleme</Label>
-                  <div className="mt-3 mx-auto max-w-[280px] rounded-lg border bg-background p-4 font-mono text-xs space-y-2">
-                    <div className="text-center whitespace-pre-line font-semibold">
+                  <div className="mt-3 mx-auto max-w-[320px] rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-background p-6 font-mono text-xs space-y-3 shadow-sm">
+                    {/* Logo */}
+                    {settings?.logo_light_url && (
+                      <div className="flex justify-center pb-1">
+                        <img src={settings.logo_light_url} alt="Logo" className="h-12 object-contain opacity-90" />
+                      </div>
+                    )}
+                    {/* Header */}
+                    <div className="text-center whitespace-pre-line font-bold text-sm">
                       {receiptHeader || storeName || "Mağaza Adı"}
                     </div>
-                    <Separator />
-                    <div className="space-y-1 text-muted-foreground">
-                      <div className="flex justify-between"><span>Ürün Adı x2</span><span>{currencySymbol}25.00</span></div>
-                      <div className="flex justify-between"><span>Ürün Adı x1</span><span>{currencySymbol}12.50</span></div>
+                    <div className="border-t border-dashed border-muted-foreground/30" />
+
+                    {/* Date & receipt no */}
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{new Date().toLocaleDateString("tr-TR")}</span>
+                      <span>Fiş #001234</span>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between font-bold">
-                      <span>TOPLAM</span><span>{currencySymbol}37.50</span>
+                    <div className="border-t border-dashed border-muted-foreground/30" />
+
+                    {/* Items */}
+                    <div className="space-y-1.5 text-muted-foreground">
+                      <div className="flex justify-between"><span>Coca Cola 330ml x2</span><span>{currencySymbol}50.00</span></div>
+                      <div className="flex justify-between"><span>Tadım Fıstık 200g x1</span><span>{currencySymbol}45.00</span></div>
+                      <div className="flex justify-between"><span>Ülker Çikolata x1</span><span>{currencySymbol}22.50</span></div>
                     </div>
+                    <div className="border-t border-dashed border-muted-foreground/30" />
+
+                    {/* Subtotal & discount */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-muted-foreground"><span>Ara Toplam</span><span>{currencySymbol}117.50</span></div>
+                      <div className="flex justify-between text-destructive text-[11px]"><span>İndirim</span><span>-{currencySymbol}5.00</span></div>
+                    </div>
+                    <div className="border-t-2 border-foreground/20" />
+
+                    {/* Grand total */}
+                    <div className="flex justify-between font-black text-base text-foreground">
+                      <span>TOPLAM</span><span>{currencySymbol}112.50</span>
+                    </div>
+
+                    {/* Payment method */}
+                    <div className="text-center text-[10px] text-muted-foreground bg-muted/50 rounded-md py-1">
+                      💳 Kredi Kartı ile ödendi
+                    </div>
+
+                    {/* Footer */}
                     {receiptFooter && (
                       <>
-                        <Separator />
-                        <div className="text-center whitespace-pre-line text-muted-foreground">{receiptFooter}</div>
+                        <div className="border-t border-dashed border-muted-foreground/30" />
+                        <div className="text-center whitespace-pre-line text-muted-foreground italic">{receiptFooter}</div>
                       </>
                     )}
+
+                    {/* Tear line */}
+                    <div className="text-center text-muted-foreground/40 text-[10px] tracking-[0.3em] select-none pt-1">
+                      ✂ · · · · · · · · · · · · · · · · · ✂
+                    </div>
                   </div>
                 </div>
 

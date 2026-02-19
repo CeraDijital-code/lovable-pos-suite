@@ -32,6 +32,7 @@ import {
 import Autoplay from "embla-carousel-autoplay";
 import TypewriterQuotes from "@/components/customer-display/TypewriterQuotes";
 import SnowEffect from "@/components/customer-display/SnowEffect";
+import { playSuccessSound } from "@/utils/successSound";
 
 // ── Types ──────────────────────────────────────────────
 interface CustomerCartItem {
@@ -334,6 +335,7 @@ const CustomerDisplayPage = () => {
       } else if (msg.type === "sale-complete") {
         setSaleCompleteData(msg.payload || null);
         setShowSuccess(true);
+        playSuccessSound();
         if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
         successTimeoutRef.current = setTimeout(() => {
           setShowSuccess(false);
