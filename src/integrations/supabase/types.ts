@@ -107,6 +107,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_register_sessions: {
+        Row: {
+          closed_at: string | null
+          closing_amount: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_amount: number
+          status: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_amount?: number
+          status?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_amount?: number
+          status?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useActiveCashSession, useOpenCashSession, useCloseCashSession } from "@/hooks/useCashSessions";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -37,6 +38,9 @@ import {
   Phone,
   X,
   Shield,
+  DoorOpen,
+  DoorClosed,
+  Clock,
 } from "lucide-react";
 import { useProducts, type Product } from "@/hooks/useProducts";
 import { useCampaigns, type CampaignWithProducts } from "@/hooks/useCampaigns";
@@ -147,6 +151,13 @@ const CashRegisterPage = () => {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
   const loyaltyRef = useRef<HTMLInputElement>(null);
+
+  // Cash session state
+  const [openingAmountInput, setOpeningAmountInput] = useState("");
+  const [sessionNotes, setSessionNotes] = useState("");
+  const { data: activeSession, isLoading: sessionLoading } = useActiveCashSession();
+  const openSession = useOpenCashSession();
+  const closeSession = useCloseCashSession();
 
   // Modals
   const [discountModal, setDiscountModal] = useState<{
@@ -516,6 +527,72 @@ const CashRegisterPage = () => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  // Session loading
+  if (sessionLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-2">
+          <div className="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Kasa durumu kontrol ediliyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Session not open - show opening screen
+  if (!activeSession) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="w-full max-w-md mx-auto p-6">
+          <div className="text-center mb-8">
+            <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-primary/10 mb-4">
+              <DoorOpen className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold">Kasa Açılışı</h1>
+            <p className="text-muted-foreground text-sm mt-1">Kasa işlemlerine başlamak için açılış tutarını girin</p>
+          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Açılış Nakit Tutarı (₺)</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={openingAmountInput}
+                onChange={(e) => setOpeningAmountInput(e.target.value)}
+                className="h-14 text-2xl text-center font-bold"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Not (opsiyonel)</Label>
+              <Input
+                placeholder="Kasa açılış notu..."
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+              />
+            </div>
+            <Button
+              className="w-full h-12 text-base gap-2"
+              onClick={() => {
+                const amount = parseFloat(openingAmountInput) || 0;
+                openSession.mutate({ openingAmount: amount, notes: sessionNotes || undefined });
+              }}
+              disabled={openSession.isPending}
+            >
+              <DoorOpen className="h-5 w-5" />
+              {openSession.isPending ? "Açılıyor..." : "Kasayı Aç"}
+            </Button>
+          </div>
+          <div className="mt-6 text-center">
+            <a href="/" className="text-sm text-primary hover:underline">← Ana Sayfaya Dön</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top bar */}
@@ -542,6 +619,25 @@ const CashRegisterPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span>Açılış: {new Date(activeSession.opened_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="mx-1">|</span>
+            <span>₺{Number(activeSession.opening_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-7 text-[10px] gap-1"
+            onClick={() => {
+              if (cart.length > 0) return;
+              closeSession.mutate({ sessionId: activeSession.id });
+            }}
+            disabled={cart.length > 0 || closeSession.isPending}
+          >
+            <DoorClosed className="h-3 w-3" />
+            Kasayı Kapat
+          </Button>
           <Button
             variant="outline"
             size="sm"

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,8 @@ import {
   ChevronDown,
   Wallet,
   ArrowDownCircle,
+  DoorOpen,
+  DoorClosed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -50,11 +52,13 @@ import {
   Cell,
 } from "recharts";
 import { useReportData } from "@/hooks/useReports";
+import { useCashSessions, type CashSession } from "@/hooks/useCashSessions";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { supabase } from "@/integrations/supabase/client";
 
-type Period = "daily" | "weekly" | "monthly";
+type Period = "daily" | "weekly" | "monthly" | "cash-sessions";
 
 const CHART_COLORS = [
   "hsl(36, 80%, 50%)",
@@ -79,7 +83,7 @@ const ReportsPage = () => {
   const currency = settings?.currency_symbol || "₺";
 
   const { startDate, endDate } = useMemo(() => {
-    if (period === "daily") {
+    if (period === "daily" || period === "cash-sessions") {
       return { startDate: startOfDay(selectedDate), endDate: endOfDay(selectedDate) };
     } else if (period === "weekly") {
       return {
@@ -95,6 +99,18 @@ const ReportsPage = () => {
   }, [period, selectedDate]);
 
   const { data: report, isLoading } = useReportData(startDate, endDate);
+  const { data: cashSessions = [], isLoading: sessionsLoading } = useCashSessions(
+    startOfMonth(selectedDate).toISOString(),
+    endOfMonth(selectedDate).toISOString()
+  );
+
+  // Profiles for session staff names
+  const [profileMap, setProfileMap] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    supabase.from("profiles").select("user_id, full_name").then(({ data }) => {
+      if (data) setProfileMap(new Map(data.map((p) => [p.user_id, p.full_name])));
+    });
+  }, []);
 
   const periodLabel = useMemo(() => {
     if (period === "daily") return format(selectedDate, "dd MMMM yyyy", { locale: tr });
@@ -284,6 +300,10 @@ const ReportsPage = () => {
             <TabsTrigger value="daily">Günlük</TabsTrigger>
             <TabsTrigger value="weekly">Haftalık</TabsTrigger>
             <TabsTrigger value="monthly">Aylık</TabsTrigger>
+            <TabsTrigger value="cash-sessions" className="gap-1.5">
+              <DoorOpen className="h-3.5 w-3.5" />
+              Kasa Raporları
+            </TabsTrigger>
           </TabsList>
 
           {/* Stats cards */}
@@ -365,6 +385,18 @@ const ReportsPage = () => {
           </TabsContent>
           <TabsContent value="monthly" className="space-y-4 mt-0">
             <ReportCharts report={report} isLoading={isLoading} currency={currency} period={period} />
+          </TabsContent>
+
+          {/* Cash Sessions Tab */}
+          <TabsContent value="cash-sessions" className="space-y-4 mt-0">
+            <CashSessionsReport
+              sessions={cashSessions}
+              isLoading={sessionsLoading}
+              profileMap={profileMap}
+              currency={currency}
+              selectedDate={selectedDate}
+              storeName={settings?.store_name || "TekelPOS"}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -658,6 +690,132 @@ function ReportCharts({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-6">Bu dönemde satış bulunmuyor</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CashSessionsReport({
+  sessions,
+  isLoading,
+  profileMap,
+  currency,
+  selectedDate,
+  storeName,
+}: {
+  sessions: CashSession[];
+  isLoading: boolean;
+  profileMap: Map<string, string>;
+  currency: string;
+  selectedDate: Date;
+  storeName: string;
+}) {
+  const generateSessionPDF = (session: CashSession) => {
+    const doc = new jsPDF();
+    const store = transliterate(storeName);
+    const openDate = new Date(session.opened_at);
+    const closeDate = session.closed_at ? new Date(session.closed_at) : null;
+
+    doc.setFontSize(18);
+    doc.text(store, 14, 20);
+    doc.setFontSize(14);
+    doc.text(transliterate("Kasa Faaliyet Raporu"), 14, 28);
+    doc.setFontSize(10);
+    doc.text(transliterate(`Tarih: ${format(openDate, "dd.MM.yyyy")}`), 14, 36);
+
+    let y = 44;
+    autoTable(doc, {
+      startY: y,
+      head: [["Bilgi", transliterate("Deger")]],
+      body: [
+        [transliterate("Acilis Personeli"), transliterate(profileMap.get(session.opened_by) || "Bilinmeyen")],
+        [transliterate("Acilis Saati"), format(openDate, "HH:mm:ss")],
+        [transliterate("Acilis Tutari"), `${currency}${Number(session.opening_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
+        [transliterate("Kapanis Saati"), closeDate ? format(closeDate, "HH:mm:ss") : "Hala Acik"],
+        ["Durum", session.status === "open" ? transliterate("Acik") : transliterate("Kapali")],
+        ...(session.closing_amount != null ? [[transliterate("Kapanis Tutari"), `${currency}${Number(session.closing_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`]] : []),
+        ...(session.notes ? [["Not", transliterate(session.notes)]] : []),
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [200, 150, 50] },
+    });
+
+    doc.setFontSize(8);
+    doc.text(
+      `${store} - Kasa Raporu | ${format(openDate, "dd.MM.yyyy")}`,
+      doc.internal.pageSize.getWidth() / 2,
+      doc.internal.pageSize.getHeight() - 10,
+      { align: "center" }
+    );
+
+    doc.save(`kasa-raporu-${format(openDate, "yyyy-MM-dd-HHmm")}.pdf`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DoorOpen className="h-4 w-4 text-primary" />
+            Kasa Oturumları — {format(selectedDate, "MMMM yyyy", { locale: tr })}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sessions.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tarih</TableHead>
+                  <TableHead>Personel</TableHead>
+                  <TableHead>Açılış Saati</TableHead>
+                  <TableHead>Açılış Tutarı</TableHead>
+                  <TableHead>Kapanış Saati</TableHead>
+                  <TableHead>Durum</TableHead>
+                  <TableHead>Not</TableHead>
+                  <TableHead className="text-right">PDF</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sessions.map((s) => {
+                  const openDate = new Date(s.opened_at);
+                  const closeDate = s.closed_at ? new Date(s.closed_at) : null;
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">{format(openDate, "dd.MM.yyyy")}</TableCell>
+                      <TableCell>{profileMap.get(s.opened_by) || "Bilinmeyen"}</TableCell>
+                      <TableCell>{format(openDate, "HH:mm")}</TableCell>
+                      <TableCell>{currency}{Number(s.opening_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>{closeDate ? format(closeDate, "HH:mm") : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={s.status === "open" ? "default" : "secondary"} className="text-[10px]">
+                          {s.status === "open" ? "Açık" : "Kapalı"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground">{s.notes || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => generateSessionPDF(s)}>
+                          <Download className="h-3 w-3" />
+                          PDF
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">Bu ay için kasa oturumu bulunmuyor</p>
           )}
         </CardContent>
       </Card>
