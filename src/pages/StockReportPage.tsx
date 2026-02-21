@@ -19,10 +19,14 @@ import {
   Download, FileText, Printer, ChevronDown,
 } from "lucide-react";
 import { useStockMovements, useProducts, type StockMovement } from "@/hooks/useProducts";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  ensureTurkishFonts, drawPdfHeader, drawPdfFooter, getTableStyles, drawStatBoxes,
+} from "@/utils/pdfUtils";
 
 const movementTypeMap = {
   in: { label: "Giriş", icon: PackagePlus, color: "text-success" },
@@ -42,19 +46,13 @@ interface ProductSummary {
 
 function buildProductSummary(movements: StockMovement[]): ProductSummary[] {
   const map = new Map<string, ProductSummary>();
-
-  // movements are ordered by created_at DESC, so first occurrence per product is the latest
   for (const m of movements) {
     const key = m.product_id;
     if (!map.has(key)) {
-      // First occurrence = latest movement (desc order) → use its new_stock as currentStock
       map.set(key, {
         name: m.products?.name || "-",
         barcode: m.products?.barcode || "-",
-        totalIn: 0,
-        totalOut: 0,
-        totalAdjustment: 0,
-        net: 0,
+        totalIn: 0, totalOut: 0, totalAdjustment: 0, net: 0,
         currentStock: m.new_stock,
       });
     }
@@ -62,175 +60,110 @@ function buildProductSummary(movements: StockMovement[]): ProductSummary[] {
     if (m.movement_type === "in") s.totalIn += m.quantity;
     else if (m.movement_type === "out") s.totalOut += m.quantity;
     else s.totalAdjustment += m.quantity;
-    // Do NOT overwrite currentStock - it's already set to the latest movement's new_stock
   }
-
   const result: ProductSummary[] = [];
   for (const [, s] of map) {
     s.net = s.totalIn - s.totalOut;
     result.push(s);
   }
-
   return result.sort((a, b) => a.name.localeCompare(b.name, "tr"));
 }
 
-// Turkish character transliteration for jsPDF (helvetica doesn't support Turkish glyphs)
-function trText(text: string): string {
-  const map: Record<string, string> = {
-    'ş': 's', 'Ş': 'S', 'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G',
-    'ı': 'i', 'İ': 'I', 'ö': 'o', 'Ö': 'O', 'ü': 'u', 'Ü': 'U',
-  };
-  return text.replace(/[şŞçÇğĞıİöÖüÜ]/g, (c) => map[c] || c);
-}
-
-function generatePDF(
+async function generatePDF(
   movements: StockMovement[],
   startDate: string,
   endDate: string,
   stats: { totalMovements: number; totalIn: number; totalOut: number },
-  printMode = false
+  storeName: string,
+  logoUrl: string | null,
+  printMode = false,
 ) {
   const summary = buildProductSummary(movements);
   const doc = new jsPDF("landscape", "mm", "a4");
+  await ensureTurkishFonts(doc);
+
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
 
-  // --- Header background bar ---
-  doc.setFillColor(30, 30, 30);
-  doc.rect(0, 0, pageWidth, 32, "F");
+  const dateRange = `${format(new Date(startDate), "dd MMMM yyyy", { locale: tr })} — ${format(new Date(endDate), "dd MMMM yyyy", { locale: tr })}`;
 
-  // Company name
-  doc.setTextColor(245, 158, 11); // amber
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("TekelPOS", margin, 14);
-
-  doc.setTextColor(180, 180, 180);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text(trText("ERP Stok Yönetim Sistemi"), margin, 20);
-
-  // Report title on right
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text(trText("STOK HAREKET RAPORU"), pageWidth - margin, 14, { align: "right" });
-
-  doc.setTextColor(180, 180, 180);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  const dateRange = trText(`${format(new Date(startDate), "dd MMMM yyyy", { locale: tr })} — ${format(new Date(endDate), "dd MMMM yyyy", { locale: tr })}`);
-  doc.text(dateRange, pageWidth - margin, 21, { align: "right" });
-
-  doc.setTextColor(120, 120, 120);
-  doc.setFontSize(7);
-  doc.text(trText(`Olusturulma: ${format(new Date(), "dd.MM.yyyy HH:mm")}`), pageWidth - margin, 27, { align: "right" });
-
-  // --- Summary stats boxes ---
-  const boxY = 38;
-  const boxH = 18;
-  const boxW = (pageWidth - margin * 2 - 20) / 3;
-  const boxes = [
-    { label: "Toplam Hareket", value: String(stats.totalMovements), color: [245, 158, 11] as [number, number, number] },
-    { label: trText("Toplam Giriş"), value: `${stats.totalIn} adet`, color: [34, 197, 94] as [number, number, number] },
-    { label: trText("Toplam Çıkış"), value: `${stats.totalOut} adet`, color: [239, 68, 68] as [number, number, number] },
-  ];
-
-  boxes.forEach((box, i) => {
-    const x = margin + i * (boxW + 10);
-    doc.setFillColor(245, 245, 245);
-    doc.roundedRect(x, boxY, boxW, boxH, 2, 2, "F");
-    doc.setDrawColor(box.color[0], box.color[1], box.color[2]);
-    doc.setLineWidth(0.5);
-    doc.line(x, boxY, x, boxY + boxH);
-
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text(box.label, x + 5, boxY + 7);
-
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(box.value, x + 5, boxY + 14);
+  let y = await drawPdfHeader({
+    doc,
+    storeName,
+    subtitle: "Stok Yönetim Sistemi",
+    dateLabel: dateRange,
+    logoUrl,
   });
 
-  // --- Product summary table ---
-  const tableStartY = boxY + boxH + 10;
+  // Stat boxes
+  y = drawStatBoxes(doc, y, [
+    { label: "Toplam Hareket", value: String(stats.totalMovements), color: [245, 158, 11] },
+    { label: "Toplam Giriş", value: `${stats.totalIn} adet`, color: [34, 197, 94] },
+    { label: "Toplam Çıkış", value: `${stats.totalOut} adet`, color: [239, 68, 68] },
+  ]);
 
-  doc.setTextColor(30, 30, 30);
+  const tbl = getTableStyles();
+
+  // Product summary table
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text(trText("URUN BAZLI STOK OZET"), margin, tableStartY);
+  doc.setTextColor(30, 30, 30);
+  doc.text("ÜRÜN BAZLI STOK ÖZET", margin, y);
+  y += 4;
 
   autoTable(doc, {
-    startY: tableStartY + 4,
+    startY: y,
     margin: { left: margin, right: margin },
     head: [[
-      "#", "Barkod", trText("Urun Adi"), trText("Giris"), trText("Cikis"), trText("Duzeltme"), "Net Hareket", trText("Guncel Stok")
+      "#", "Barkod", "Ürün Adı", "Giriş", "Çıkış", "Düzeltme", "Net Hareket", "Güncel Stok"
     ]],
     body: summary.map((s, i) => [
       String(i + 1),
       s.barcode,
-      trText(s.name),
+      s.name,
       String(s.totalIn),
       String(s.totalOut),
       String(s.totalAdjustment),
       s.net >= 0 ? `+${s.net}` : String(s.net),
       String(s.currentStock),
     ]),
-    styles: {
-      fontSize: 8,
-      cellPadding: 3,
-      lineColor: [220, 220, 220],
-      lineWidth: 0.2,
-    },
-    headStyles: {
-      fillColor: [30, 30, 30],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 7.5,
-    },
-    alternateRowStyles: {
-      fillColor: [250, 250, 250],
-    },
+    ...tbl,
     columnStyles: {
       0: { halign: "center", cellWidth: 10 },
-      1: { font: "courier", fontSize: 7 },
+      1: { fontSize: 7 },
       3: { halign: "right", textColor: [34, 150, 80] },
       4: { halign: "right", textColor: [200, 50, 50] },
       5: { halign: "right", textColor: [180, 130, 20] },
       6: { halign: "right", fontStyle: "bold" },
       7: { halign: "right", fontStyle: "bold" },
     },
-    didDrawPage: (data) => {
-      // Footer on every page
-      const pageNum = doc.getNumberOfPages();
-      doc.setFillColor(245, 245, 245);
+    didDrawPage: () => {
+      // Footer per page
+      doc.setFillColor(248, 248, 248);
       doc.rect(0, pageHeight - 12, pageWidth, 12, "F");
+      doc.setFont("Roboto", "normal");
       doc.setTextColor(130, 130, 130);
       doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.text(trText("TekelPOS ERP — Stok Hareket Raporu"), margin, pageHeight - 5);
-      doc.text(`Sayfa ${data.pageNumber}`, pageWidth - margin, pageHeight - 5, { align: "right" });
+      doc.text(`${storeName} — Stok Hareket Raporu`, margin, pageHeight - 5);
+      const pn = doc.getNumberOfPages();
+      doc.text(`Sayfa ${pn}`, pageWidth - margin, pageHeight - 5, { align: "right" });
     },
   });
 
-  // --- Total row separator ---
-  const finalY = (doc as any).lastAutoTable?.finalY || tableStartY + 30;
-
+  // Total row
+  const finalY = (doc as any).lastAutoTable?.finalY || y + 30;
   if (finalY + 15 < pageHeight - 15) {
-    doc.setFillColor(30, 30, 30);
+    doc.setFillColor(24, 24, 27);
     doc.roundedRect(margin, finalY + 4, pageWidth - margin * 2, 10, 1, 1, "F");
+    doc.setFont("Roboto", "bold");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
     doc.text("TOPLAM", margin + 5, finalY + 10.5);
-    doc.text(trText(`Giris: ${stats.totalIn}`), margin + 100, finalY + 10.5);
-    doc.text(trText(`Cikis: ${stats.totalOut}`), margin + 145, finalY + 10.5);
+    doc.text(`Giriş: ${stats.totalIn}`, margin + 100, finalY + 10.5);
+    doc.text(`Çıkış: ${stats.totalOut}`, margin + 145, finalY + 10.5);
     doc.text(`Net: ${stats.totalIn - stats.totalOut >= 0 ? "+" : ""}${stats.totalIn - stats.totalOut}`, margin + 190, finalY + 10.5);
-    doc.text(trText(`${summary.length} urun`), pageWidth - margin - 5, finalY + 10.5, { align: "right" });
+    doc.text(`${summary.length} ürün`, pageWidth - margin - 5, finalY + 10.5, { align: "right" });
   }
 
   if (printMode) {
@@ -258,11 +191,14 @@ const StockReportPage = () => {
   });
 
   const { data: products } = useProducts();
+  const { data: settings } = useStoreSettings();
+
+  const storeName = settings?.store_name || "TekelPOS";
+  const logoUrl = settings?.logo_light_url || settings?.logo_dark_url || null;
 
   const totalIn = movements?.filter((m) => m.movement_type === "in").reduce((s, m) => s + m.quantity, 0) || 0;
   const totalOut = movements?.filter((m) => m.movement_type === "out").reduce((s, m) => s + m.quantity, 0) || 0;
   const totalMovements = movements?.length || 0;
-
   const stats = { totalMovements, totalIn, totalOut };
 
   const handleExportCSV = () => {
@@ -285,12 +221,12 @@ const StockReportPage = () => {
 
   const handleExportPDF = () => {
     if (!movements?.length) return;
-    generatePDF(movements, startDate, endDate, stats);
+    generatePDF(movements, startDate, endDate, stats, storeName, logoUrl);
   };
 
   const handlePrint = () => {
     if (!movements?.length) return;
-    generatePDF(movements, startDate, endDate, stats, true);
+    generatePDF(movements, startDate, endDate, stats, storeName, logoUrl, true);
   };
 
   return (

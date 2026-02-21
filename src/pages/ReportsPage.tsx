@@ -10,46 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  BarChart3,
-  TrendingUp,
-  CalendarIcon,
-  DollarSign,
-  Download,
-  Users,
-  Package,
-  CreditCard,
-  ShoppingCart,
-  ChevronDown,
-  Wallet,
-  ArrowDownCircle,
-  DoorOpen,
-  DoorClosed,
+  BarChart3, TrendingUp, CalendarIcon, DollarSign, Download, Users, Package,
+  CreditCard, ShoppingCart, ChevronDown, Wallet, ArrowDownCircle, DoorOpen, DoorClosed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  format,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  subDays,
+  format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 } from "date-fns";
 import { tr } from "date-fns/locale";
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { useReportData } from "@/hooks/useReports";
 import { useCashSessions, type CashSession } from "@/hooks/useCashSessions";
@@ -57,24 +28,16 @@ import { useStoreSettings } from "@/hooks/useStoreSettings";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  ensureTurkishFonts, drawPdfHeader, drawPdfFooter, getTableStyles, drawStatBoxes,
+} from "@/utils/pdfUtils";
 
 type Period = "daily" | "weekly" | "monthly" | "cash-sessions";
 
 const CHART_COLORS = [
-  "hsl(36, 80%, 50%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(217, 91%, 60%)",
-  "hsl(0, 72%, 51%)",
-  "hsl(38, 92%, 50%)",
+  "hsl(36, 80%, 50%)", "hsl(142, 71%, 45%)", "hsl(217, 91%, 60%)",
+  "hsl(0, 72%, 51%)", "hsl(38, 92%, 50%)",
 ];
-
-function transliterate(str: string): string {
-  const map: Record<string, string> = {
-    ç: "c", Ç: "C", ğ: "g", Ğ: "G", ı: "i", İ: "I",
-    ö: "o", Ö: "O", ş: "s", Ş: "S", ü: "u", Ü: "U",
-  };
-  return str.replace(/[çÇğĞıİöÖşŞüÜ]/g, (c) => map[c] || c);
-}
 
 const ReportsPage = () => {
   const [period, setPeriod] = useState<Period>("daily");
@@ -91,10 +54,7 @@ const ReportsPage = () => {
         endDate: endOfWeek(selectedDate, { weekStartsOn: 1 }),
       };
     } else {
-      return {
-        startDate: startOfMonth(selectedDate),
-        endDate: endOfMonth(selectedDate),
-      };
+      return { startDate: startOfMonth(selectedDate), endDate: endOfMonth(selectedDate) };
     }
   }, [period, selectedDate]);
 
@@ -104,7 +64,6 @@ const ReportsPage = () => {
     endOfMonth(selectedDate).toISOString()
   );
 
-  // Profiles for session staff names
   const [profileMap, setProfileMap] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     supabase.from("profiles").select("user_id, full_name").then(({ data }) => {
@@ -119,139 +78,136 @@ const ReportsPage = () => {
     return format(selectedDate, "MMMM yyyy", { locale: tr });
   }, [period, selectedDate, startDate, endDate]);
 
-  const generatePDF = () => {
+  const logoUrl = settings?.logo_light_url || settings?.logo_dark_url || null;
+
+  const generatePDF = async () => {
     if (!report) return;
     const doc = new jsPDF();
-    const storeName = transliterate(settings?.store_name || "TekelPOS");
+    await ensureTurkishFonts(doc);
+
+    const storeName = settings?.store_name || "TekelPOS";
     const title = period === "monthly"
-      ? transliterate(`Ay Sonu Kapanıs Raporu - ${periodLabel}`)
-      : transliterate(`Gun Sonu Raporu - ${periodLabel}`);
+      ? `Ay Sonu Kapanış Raporu — ${periodLabel}`
+      : `Gün Sonu Raporu — ${periodLabel}`;
 
-    // Header
-    doc.setFontSize(18);
-    doc.text(storeName, 14, 20);
-    doc.setFontSize(12);
-    doc.text(title, 14, 28);
-    doc.setFontSize(9);
-    doc.text(transliterate(`Olusturulma: ${format(new Date(), "dd.MM.yyyy HH:mm")}`), 14, 34);
+    let y = await drawPdfHeader({
+      doc, storeName, subtitle: "ERP Raporlama Sistemi", dateLabel: periodLabel, logoUrl,
+    });
 
-    let y = 42;
+    const tbl = getTableStyles();
 
-    // Summary
-    doc.setFontSize(13);
-    doc.text(transliterate("Ozet Bilgiler"), 14, y);
-    y += 2;
+    // Stat boxes
+    y = drawStatBoxes(doc, y, [
+      { label: "Toplam Ciro", value: `${currency}${report.totalRevenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`, color: [245, 158, 11] },
+      { label: "İşlem Sayısı", value: report.saleCount.toString(), color: [34, 197, 94] },
+      { label: "Ortalama Sepet", value: `${currency}${report.avgBasket.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`, color: [59, 130, 246] },
+    ]);
+
+    // Summary table
+    doc.setFont("Roboto", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text("ÖZET BİLGİLER", 14, y);
+    y += 4;
     autoTable(doc, {
       startY: y,
-      head: [["Metrik", "Deger"]],
+      head: [["Metrik", "Değer"]],
       body: [
-        [transliterate("Toplam Ciro"), `${currency}${report.totalRevenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
-        [transliterate("Toplam Indirim"), `${currency}${report.totalDiscount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
-        [transliterate("Islem Sayisi"), report.saleCount.toString()],
-        [transliterate("Ortalama Sepet"), `${currency}${report.avgBasket.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
-        [transliterate("Satilan Urun Adedi"), report.totalItems.toString()],
-        [transliterate("Tedarikci Odemeleri"), `${currency}${report.supplierPayments.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
+        ["Toplam Ciro", `${currency}${report.totalRevenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
+        ["Toplam İndirim", `${currency}${report.totalDiscount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
+        ["İşlem Sayısı", report.saleCount.toString()],
+        ["Ortalama Sepet", `${currency}${report.avgBasket.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
+        ["Satılan Ürün Adedi", report.totalItems.toString()],
+        ["Tedarikçi Ödemeleri", `${currency}${report.supplierPayments.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
       ],
-      theme: "grid",
-      headStyles: { fillColor: [200, 150, 50] },
+      ...tbl,
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 8;
 
     // Payment methods
     if (report.paymentMethods.length > 0) {
-      doc.setFontSize(13);
-      doc.text(transliterate("Odeme Yontemleri"), 14, y);
-      y += 2;
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.text("ÖDEME YÖNTEMLERİ", 14, y);
+      y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["Yontem", transliterate("Islem"), "Tutar"]],
+        head: [["Yöntem", "İşlem", "Tutar"]],
         body: report.paymentMethods.map((pm) => [
-          transliterate(pm.label),
+          pm.label,
           pm.count.toString(),
           `${currency}${pm.total.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
         ]),
-        theme: "grid",
-        headStyles: { fillColor: [200, 150, 50] },
+        ...tbl,
       });
-      y = (doc as any).lastAutoTable.finalY + 10;
+      y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // Staff summary
+    // Staff
     if (report.staffSummary.length > 0) {
       if (y > 240) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text(transliterate("Personel Performansi"), 14, y);
-      y += 2;
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.text("PERSONEL PERFORMANSI", 14, y);
+      y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["Personel", transliterate("Satis"), transliterate("Urun"), "Ciro", transliterate("Indirim")]],
+        head: [["Personel", "Satış", "Ürün", "Ciro", "İndirim"]],
         body: report.staffSummary.map((s) => [
-          transliterate(s.fullName),
+          s.fullName,
           s.saleCount.toString(),
           s.itemCount.toString(),
           `${currency}${s.totalRevenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
           `${currency}${s.totalDiscount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
         ]),
-        theme: "grid",
-        headStyles: { fillColor: [200, 150, 50] },
+        ...tbl,
       });
-      y = (doc as any).lastAutoTable.finalY + 10;
+      y = (doc as any).lastAutoTable.finalY + 8;
     }
 
     // Top products
     if (report.topProducts.length > 0) {
       if (y > 220) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text(transliterate("En Cok Satan Urunler"), 14, y);
-      y += 2;
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.text("EN ÇOK SATAN ÜRÜNLER", 14, y);
+      y += 4;
       autoTable(doc, {
         startY: y,
-        head: [[transliterate("Urun"), "Adet", "Ciro"]],
+        head: [["Ürün", "Adet", "Ciro"]],
         body: report.topProducts.map((p) => [
-          transliterate(p.name),
+          p.name,
           p.quantity.toString(),
           `${currency}${p.revenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
         ]),
-        theme: "grid",
-        headStyles: { fillColor: [200, 150, 50] },
+        ...tbl,
       });
-      y = (doc as any).lastAutoTable.finalY + 10;
+      y = (doc as any).lastAutoTable.finalY + 8;
     }
 
     // Sale details
     if (report.sales.length > 0) {
       if (y > 200) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text(transliterate("Satis Detaylari"), 14, y);
-      y += 2;
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.text("SATIŞ DETAYLARI", 14, y);
+      y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["#", "Saat", "Personel", transliterate("Odeme"), "Tutar"]],
+        head: [["#", "Saat", "Personel", "Ödeme", "Tutar"]],
         body: report.sales.map((s) => [
           `#${s.sale_number}`,
           format(new Date(s.created_at), "HH:mm"),
-          transliterate(report.staffSummary.find((st) => st.userId === s.created_by)?.fullName || "?"),
-          transliterate(s.payment_method === "cash" ? "Nakit" : s.payment_method === "card" ? "Kart" : s.payment_method),
+          report.staffSummary.find((st) => st.userId === s.created_by)?.fullName || "?",
+          s.payment_method === "cash" ? "Nakit" : s.payment_method === "card" ? "Kart" : s.payment_method,
           `${currency}${Number(s.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`,
         ]),
-        theme: "grid",
-        headStyles: { fillColor: [200, 150, 50] },
-        styles: { fontSize: 8 },
+        ...tbl,
+        styles: { ...tbl.styles, fontSize: 7 },
       });
     }
 
-    // Footer
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(
-        `${storeName} - ${title} | Sayfa ${i}/${pageCount}`,
-        doc.internal.pageSize.getWidth() / 2,
-        doc.internal.pageSize.getHeight() - 10,
-        { align: "center" }
-      );
-    }
+    drawPdfFooter(doc, storeName, title);
 
     const filename = period === "monthly"
       ? `ay-sonu-raporu-${format(selectedDate, "yyyy-MM")}.pdf`
@@ -376,7 +332,6 @@ const ReportsPage = () => {
             </div>
           ) : null}
 
-          {/* Charts section - ALL tabs share same content */}
           <TabsContent value="daily" className="space-y-4 mt-0">
             <ReportCharts report={report} isLoading={isLoading} currency={currency} period={period} />
           </TabsContent>
@@ -387,7 +342,6 @@ const ReportsPage = () => {
             <ReportCharts report={report} isLoading={isLoading} currency={currency} period={period} />
           </TabsContent>
 
-          {/* Cash Sessions Tab */}
           <TabsContent value="cash-sessions" className="space-y-4 mt-0">
             <CashSessionsReport
               sessions={cashSessions}
@@ -396,6 +350,7 @@ const ReportsPage = () => {
               currency={currency}
               selectedDate={selectedDate}
               storeName={settings?.store_name || "TekelPOS"}
+              logoUrl={logoUrl}
             />
           </TabsContent>
         </Tabs>
@@ -427,9 +382,7 @@ function ReportCharts({
 
   return (
     <div className="space-y-4">
-      {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Hourly/Sales chart */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -459,7 +412,6 @@ function ReportCharts({
           </CardContent>
         </Card>
 
-        {/* Payment method pie */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -472,15 +424,7 @@ function ReportCharts({
               <div className="flex items-center gap-4">
                 <ResponsiveContainer width="50%" height={250}>
                   <PieChart>
-                    <Pie
-                      data={report.paymentMethods}
-                      dataKey="total"
-                      nameKey="label"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={90}
-                      label={({ label }) => label}
-                    >
+                    <Pie data={report.paymentMethods} dataKey="total" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ label }) => label}>
                       {report.paymentMethods.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
@@ -511,7 +455,6 @@ function ReportCharts({
         </Card>
       </div>
 
-      {/* Staff performance */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -555,7 +498,6 @@ function ReportCharts({
         </CardContent>
       </Card>
 
-      {/* Top products */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -580,7 +522,6 @@ function ReportCharts({
         </CardContent>
       </Card>
 
-      {/* Supplier payments summary */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -615,7 +556,6 @@ function ReportCharts({
         </CardContent>
       </Card>
 
-      {/* Recent sales with staff info */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -713,6 +653,7 @@ function CashSessionsReport({
   currency,
   selectedDate,
   storeName,
+  logoUrl,
 }: {
   sessions: CashSession[];
   isLoading: boolean;
@@ -720,10 +661,10 @@ function CashSessionsReport({
   currency: string;
   selectedDate: Date;
   storeName: string;
+  logoUrl?: string | null;
 }) {
   const [sessionSales, setSessionSales] = useState<Map<string, SessionSalesData>>(new Map());
 
-  // Fetch sales data for each session
   useEffect(() => {
     if (sessions.length === 0) return;
     const fetchAll = async () => {
@@ -746,14 +687,12 @@ function CashSessionsReport({
           else if (s.payment_method === "card") cardTotal += t;
           else mixedTotal += t;
         }
-        // Parse mixed payment cash portion
         for (const s of rows) {
           if (s.payment_method.startsWith("split:")) {
             const cashMatch = s.payment_method.match(/cash=([0-9.]+)/);
             if (cashMatch) cashTotal += parseFloat(cashMatch[1]);
           }
         }
-        // Cash difference: opening + cash sales - closing
         const expectedCash = Number(session.opening_amount) + cashTotal;
         const closingAmt = session.closing_amount != null ? Number(session.closing_amount) : null;
         const cashDiff = closingAmt != null ? closingAmt - expectedCash : 0;
@@ -767,77 +706,87 @@ function CashSessionsReport({
 
   const fmtMoney = (n: number) => `${currency}${n.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`;
 
-  const generateSessionPDF = (session: CashSession) => {
+  const generateSessionPDF = async (session: CashSession) => {
     const doc = new jsPDF();
-    const store = transliterate(storeName);
+    await ensureTurkishFonts(doc);
+
     const openDate = new Date(session.opened_at);
     const closeDate = session.closed_at ? new Date(session.closed_at) : null;
     const salesData = sessionSales.get(session.id);
 
-    doc.setFontSize(18);
-    doc.text(store, 14, 20);
-    doc.setFontSize(14);
-    doc.text(transliterate("Kasa Faaliyet Raporu"), 14, 28);
-    doc.setFontSize(10);
-    doc.text(transliterate(`Tarih: ${format(openDate, "dd.MM.yyyy")}`), 14, 36);
+    let y = await drawPdfHeader({
+      doc,
+      storeName,
+      subtitle: "Kasa Faaliyet Raporu",
+      dateLabel: format(openDate, "dd MMMM yyyy", { locale: tr }),
+      logoUrl,
+    });
 
-    let y = 44;
+    const tbl = getTableStyles();
+
+    // Session info table
+    doc.setFont("Roboto", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text("OTURUM BİLGİLERİ", 14, y);
+    y += 4;
+
     const bodyRows: string[][] = [
-      [transliterate("Acilis Personeli"), transliterate(profileMap.get(session.opened_by) || "Bilinmeyen")],
-      [transliterate("Acilis Saati"), format(openDate, "HH:mm:ss")],
-      [transliterate("Acilis Tutari"), fmtMoney(Number(session.opening_amount))],
-      [transliterate("Kapanis Saati"), closeDate ? format(closeDate, "HH:mm:ss") : "Hala Acik"],
-      ["Durum", session.status === "open" ? transliterate("Acik") : transliterate("Kapali")],
+      ["Açılış Personeli", profileMap.get(session.opened_by) || "Bilinmeyen"],
+      ["Açılış Saati", format(openDate, "HH:mm:ss")],
+      ["Açılış Tutarı", fmtMoney(Number(session.opening_amount))],
+      ["Kapanış Saati", closeDate ? format(closeDate, "HH:mm:ss") : "Hâlâ Açık"],
+      ["Durum", session.status === "open" ? "Açık" : "Kapalı"],
     ];
     if (session.closing_amount != null) {
-      bodyRows.push([transliterate("Kapanis Tutari"), fmtMoney(Number(session.closing_amount))]);
+      bodyRows.push(["Kapanış Tutarı", fmtMoney(Number(session.closing_amount))]);
     }
     if (session.notes) {
-      bodyRows.push(["Not", transliterate(session.notes)]);
+      bodyRows.push(["Not", session.notes]);
     }
 
     autoTable(doc, {
       startY: y,
-      head: [["Bilgi", transliterate("Deger")]],
+      head: [["Bilgi", "Değer"]],
       body: bodyRows,
-      theme: "grid",
-      headStyles: { fillColor: [200, 150, 50] },
+      ...tbl,
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sales summary
     if (salesData) {
-      doc.setFontSize(13);
-      doc.text(transliterate("Satis Ozeti"), 14, y);
-      y += 2;
+      // Stat boxes
+      y = drawStatBoxes(doc, y, [
+        { label: "Toplam Satış", value: salesData.saleCount.toString(), color: [245, 158, 11] },
+        { label: "Nakit", value: fmtMoney(salesData.cashTotal), color: [34, 197, 94] },
+        { label: "Kart", value: fmtMoney(salesData.cardTotal), color: [59, 130, 246] },
+      ]);
+
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.text("SATIŞ ÖZETİ", 14, y);
+      y += 4;
       const salesRows: string[][] = [
-        [transliterate("Toplam Satis"), salesData.saleCount.toString()],
-        [transliterate("Toplam Ciro"), fmtMoney(salesData.totalRevenue)],
+        ["Toplam Satış", salesData.saleCount.toString()],
+        ["Toplam Ciro", fmtMoney(salesData.totalRevenue)],
         ["Nakit", fmtMoney(salesData.cashTotal)],
         ["Kart", fmtMoney(salesData.cardTotal)],
       ];
       if (salesData.mixedTotal > 0) salesRows.push(["Karma", fmtMoney(salesData.mixedTotal)]);
       if (session.closing_amount != null) {
-        salesRows.push([transliterate("Beklenen Nakit"), fmtMoney(Number(session.opening_amount) + salesData.cashTotal)]);
-        salesRows.push([transliterate("Kapanis Kasasi"), fmtMoney(Number(session.closing_amount))]);
+        salesRows.push(["Beklenen Nakit", fmtMoney(Number(session.opening_amount) + salesData.cashTotal)]);
+        salesRows.push(["Kapanış Kasası", fmtMoney(Number(session.closing_amount))]);
         salesRows.push(["Fark", `${salesData.cashDiff >= 0 ? "+" : ""}${fmtMoney(salesData.cashDiff)}`]);
       }
       autoTable(doc, {
         startY: y,
-        head: [["Metrik", transliterate("Deger")]],
+        head: [["Metrik", "Değer"]],
         body: salesRows,
-        theme: "grid",
-        headStyles: { fillColor: [200, 150, 50] },
+        ...tbl,
       });
     }
 
-    doc.setFontSize(8);
-    doc.text(
-      `${store} - Kasa Raporu | ${format(openDate, "dd.MM.yyyy")}`,
-      doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 10,
-      { align: "center" }
-    );
+    drawPdfFooter(doc, storeName, "Kasa Faaliyet Raporu");
 
     doc.save(`kasa-raporu-${format(openDate, "yyyy-MM-dd-HHmm")}.pdf`);
   };
