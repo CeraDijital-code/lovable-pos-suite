@@ -500,11 +500,15 @@ const CashRegisterPage = () => {
       const tag = (e.target as HTMLElement)?.tagName;
       const isInput = tag === "INPUT" || tag === "TEXTAREA";
 
-      // * key → focus quantity multiplier
+      // * key → focus quantity multiplier (if already focused, go back to barcode)
       if (e.key === "*") {
         e.preventDefault();
-        quantityRef.current?.focus();
-        quantityRef.current?.select();
+        if (document.activeElement === quantityRef.current) {
+          barcodeRef.current?.focus();
+        } else {
+          quantityRef.current?.focus();
+          quantityRef.current?.select();
+        }
         return;
       }
 

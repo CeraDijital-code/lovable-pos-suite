@@ -697,6 +697,15 @@ function ReportCharts({
   );
 }
 
+interface SessionSalesData {
+  totalRevenue: number;
+  cashTotal: number;
+  cardTotal: number;
+  mixedTotal: number;
+  saleCount: number;
+  cashDiff: number;
+}
+
 function CashSessionsReport({
   sessions,
   isLoading,
@@ -712,11 +721,58 @@ function CashSessionsReport({
   selectedDate: Date;
   storeName: string;
 }) {
+  const [sessionSales, setSessionSales] = useState<Map<string, SessionSalesData>>(new Map());
+
+  // Fetch sales data for each session
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    const fetchAll = async () => {
+      const map = new Map<string, SessionSalesData>();
+      for (const session of sessions) {
+        const startTime = session.opened_at;
+        const endTime = session.closed_at || new Date().toISOString();
+        const { data: sales } = await supabase
+          .from("sales")
+          .select("total, payment_method")
+          .gte("created_at", startTime)
+          .lte("created_at", endTime);
+
+        const rows = sales || [];
+        let totalRevenue = 0, cashTotal = 0, cardTotal = 0, mixedTotal = 0;
+        for (const s of rows) {
+          const t = Number(s.total);
+          totalRevenue += t;
+          if (s.payment_method === "cash") cashTotal += t;
+          else if (s.payment_method === "card") cardTotal += t;
+          else mixedTotal += t;
+        }
+        // Parse mixed payment cash portion
+        for (const s of rows) {
+          if (s.payment_method.startsWith("split:")) {
+            const cashMatch = s.payment_method.match(/cash=([0-9.]+)/);
+            if (cashMatch) cashTotal += parseFloat(cashMatch[1]);
+          }
+        }
+        // Cash difference: opening + cash sales - closing
+        const expectedCash = Number(session.opening_amount) + cashTotal;
+        const closingAmt = session.closing_amount != null ? Number(session.closing_amount) : null;
+        const cashDiff = closingAmt != null ? closingAmt - expectedCash : 0;
+
+        map.set(session.id, { totalRevenue, cashTotal, cardTotal, mixedTotal, saleCount: rows.length, cashDiff });
+      }
+      setSessionSales(map);
+    };
+    fetchAll();
+  }, [sessions]);
+
+  const fmtMoney = (n: number) => `${currency}${n.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`;
+
   const generateSessionPDF = (session: CashSession) => {
     const doc = new jsPDF();
     const store = transliterate(storeName);
     const openDate = new Date(session.opened_at);
     const closeDate = session.closed_at ? new Date(session.closed_at) : null;
+    const salesData = sessionSales.get(session.id);
 
     doc.setFontSize(18);
     doc.text(store, 14, 20);
@@ -726,21 +782,54 @@ function CashSessionsReport({
     doc.text(transliterate(`Tarih: ${format(openDate, "dd.MM.yyyy")}`), 14, 36);
 
     let y = 44;
+    const bodyRows: string[][] = [
+      [transliterate("Acilis Personeli"), transliterate(profileMap.get(session.opened_by) || "Bilinmeyen")],
+      [transliterate("Acilis Saati"), format(openDate, "HH:mm:ss")],
+      [transliterate("Acilis Tutari"), fmtMoney(Number(session.opening_amount))],
+      [transliterate("Kapanis Saati"), closeDate ? format(closeDate, "HH:mm:ss") : "Hala Acik"],
+      ["Durum", session.status === "open" ? transliterate("Acik") : transliterate("Kapali")],
+    ];
+    if (session.closing_amount != null) {
+      bodyRows.push([transliterate("Kapanis Tutari"), fmtMoney(Number(session.closing_amount))]);
+    }
+    if (session.notes) {
+      bodyRows.push(["Not", transliterate(session.notes)]);
+    }
+
     autoTable(doc, {
       startY: y,
       head: [["Bilgi", transliterate("Deger")]],
-      body: [
-        [transliterate("Acilis Personeli"), transliterate(profileMap.get(session.opened_by) || "Bilinmeyen")],
-        [transliterate("Acilis Saati"), format(openDate, "HH:mm:ss")],
-        [transliterate("Acilis Tutari"), `${currency}${Number(session.opening_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`],
-        [transliterate("Kapanis Saati"), closeDate ? format(closeDate, "HH:mm:ss") : "Hala Acik"],
-        ["Durum", session.status === "open" ? transliterate("Acik") : transliterate("Kapali")],
-        ...(session.closing_amount != null ? [[transliterate("Kapanis Tutari"), `${currency}${Number(session.closing_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`]] : []),
-        ...(session.notes ? [["Not", transliterate(session.notes)]] : []),
-      ],
+      body: bodyRows,
       theme: "grid",
       headStyles: { fillColor: [200, 150, 50] },
     });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Sales summary
+    if (salesData) {
+      doc.setFontSize(13);
+      doc.text(transliterate("Satis Ozeti"), 14, y);
+      y += 2;
+      const salesRows: string[][] = [
+        [transliterate("Toplam Satis"), salesData.saleCount.toString()],
+        [transliterate("Toplam Ciro"), fmtMoney(salesData.totalRevenue)],
+        ["Nakit", fmtMoney(salesData.cashTotal)],
+        ["Kart", fmtMoney(salesData.cardTotal)],
+      ];
+      if (salesData.mixedTotal > 0) salesRows.push(["Karma", fmtMoney(salesData.mixedTotal)]);
+      if (session.closing_amount != null) {
+        salesRows.push([transliterate("Beklenen Nakit"), fmtMoney(Number(session.opening_amount) + salesData.cashTotal)]);
+        salesRows.push([transliterate("Kapanis Kasasi"), fmtMoney(Number(session.closing_amount))]);
+        salesRows.push(["Fark", `${salesData.cashDiff >= 0 ? "+" : ""}${fmtMoney(salesData.cashDiff)}`]);
+      }
+      autoTable(doc, {
+        startY: y,
+        head: [["Metrik", transliterate("Deger")]],
+        body: salesRows,
+        theme: "grid",
+        headStyles: { fillColor: [200, 150, 50] },
+      });
+    }
 
     doc.setFontSize(8);
     doc.text(
@@ -778,11 +867,15 @@ function CashSessionsReport({
                 <TableRow>
                   <TableHead>Tarih</TableHead>
                   <TableHead>Personel</TableHead>
-                  <TableHead>Açılış Saati</TableHead>
-                  <TableHead>Açılış Tutarı</TableHead>
-                  <TableHead>Kapanış Saati</TableHead>
+                  <TableHead>Açılış</TableHead>
+                  <TableHead>Açılış ₺</TableHead>
+                  <TableHead>Kapanış</TableHead>
+                  <TableHead>Satış</TableHead>
+                  <TableHead>Nakit</TableHead>
+                  <TableHead>Kart</TableHead>
+                  <TableHead>Ciro</TableHead>
+                  <TableHead>Fark</TableHead>
                   <TableHead>Durum</TableHead>
-                  <TableHead>Not</TableHead>
                   <TableHead className="text-right">PDF</TableHead>
                 </TableRow>
               </TableHeader>
@@ -790,19 +883,30 @@ function CashSessionsReport({
                 {sessions.map((s) => {
                   const openDate = new Date(s.opened_at);
                   const closeDate = s.closed_at ? new Date(s.closed_at) : null;
+                  const sd = sessionSales.get(s.id);
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{format(openDate, "dd.MM.yyyy")}</TableCell>
                       <TableCell>{profileMap.get(s.opened_by) || "Bilinmeyen"}</TableCell>
                       <TableCell>{format(openDate, "HH:mm")}</TableCell>
-                      <TableCell>{currency}{Number(s.opening_amount).toLocaleString("tr-TR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell>{fmtMoney(Number(s.opening_amount))}</TableCell>
                       <TableCell>{closeDate ? format(closeDate, "HH:mm") : "—"}</TableCell>
+                      <TableCell className="text-center">{sd?.saleCount ?? "—"}</TableCell>
+                      <TableCell>{sd ? fmtMoney(sd.cashTotal) : "—"}</TableCell>
+                      <TableCell>{sd ? fmtMoney(sd.cardTotal) : "—"}</TableCell>
+                      <TableCell className="font-semibold">{sd ? fmtMoney(sd.totalRevenue) : "—"}</TableCell>
+                      <TableCell>
+                        {sd && s.closing_amount != null ? (
+                          <span className={cn("text-xs font-medium", sd.cashDiff >= 0 ? "text-success" : "text-destructive")}>
+                            {sd.cashDiff >= 0 ? "+" : ""}{fmtMoney(sd.cashDiff)}
+                          </span>
+                        ) : "—"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={s.status === "open" ? "default" : "secondary"} className="text-[10px]">
                           {s.status === "open" ? "Açık" : "Kapalı"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground">{s.notes || "—"}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => generateSessionPDF(s)}>
                           <Download className="h-3 w-3" />
