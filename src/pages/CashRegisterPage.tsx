@@ -155,6 +155,9 @@ const CashRegisterPage = () => {
   // Cash session state
   const [openingAmountInput, setOpeningAmountInput] = useState("");
   const [sessionNotes, setSessionNotes] = useState("");
+  const [closeModal, setCloseModal] = useState(false);
+  const [closingAmountInput, setClosingAmountInput] = useState("");
+  const [closingNotes, setClosingNotes] = useState("");
   const { data: activeSession, isLoading: sessionLoading } = useActiveCashSession();
   const openSession = useOpenCashSession();
   const closeSession = useCloseCashSession();
@@ -635,7 +638,9 @@ const CashRegisterPage = () => {
             className="h-7 text-[10px] gap-1"
             onClick={() => {
               if (cart.length > 0) return;
-              closeSession.mutate({ sessionId: activeSession.id });
+              setClosingAmountInput("");
+              setClosingNotes("");
+              setCloseModal(true);
             }}
             disabled={cart.length > 0 || closeSession.isPending}
           >
@@ -1335,7 +1340,63 @@ const CashRegisterPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Split Payment Modal */}
+      {/* Close Session Modal */}
+      <Dialog open={closeModal} onOpenChange={setCloseModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DoorClosed className="h-5 w-5" />
+              Kasa Kapanışı
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Kasadaki Nakit Tutarı (₺) *</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0.00"
+                value={closingAmountInput}
+                onChange={(e) => setClosingAmountInput(e.target.value)}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Kasadaki fiziksel nakit tutarını sayıp girin.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Not (opsiyonel)</Label>
+              <Input
+                placeholder="Kapanış notu..."
+                value={closingNotes}
+                onChange={(e) => setClosingNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseModal(false)}>İptal</Button>
+            <Button
+              variant="destructive"
+              disabled={!closingAmountInput || closeSession.isPending}
+              onClick={() => {
+                if (!activeSession || !closingAmountInput) return;
+                closeSession.mutate(
+                  {
+                    sessionId: activeSession.id,
+                    closingAmount: parseFloat(closingAmountInput),
+                    notes: closingNotes || undefined,
+                  },
+                  { onSuccess: () => setCloseModal(false) }
+                );
+              }}
+            >
+              {closeSession.isPending ? "Kapatılıyor..." : "Kasayı Kapat"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={splitModal} onOpenChange={setSplitModal}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
