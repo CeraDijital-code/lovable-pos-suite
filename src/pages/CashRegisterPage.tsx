@@ -71,6 +71,12 @@ function applyCampaigns(
     (c) => c.is_active && c.start_date <= today && c.end_date >= today
   );
 
+  // Pre-calculate source product quantities in cart for x_alana_y_indirim
+  const cartQuantityByProduct: Record<string, number> = {};
+  for (const item of items) {
+    cartQuantityByProduct[item.productId] = (cartQuantityByProduct[item.productId] || 0) + item.quantity;
+  }
+
   return items.map((item) => {
     let bestDiscount = 0;
     let bestCampaignId: string | null = null;
@@ -80,6 +86,38 @@ function applyCampaigns(
       const sourceProducts = (campaign.campaign_products || [])
         .filter((cp) => cp.role === "source")
         .map((cp) => cp.product_id);
+      const targetProducts = (campaign.campaign_products || [])
+        .filter((cp) => cp.role === "target")
+        .map((cp) => cp.product_id);
+
+      // x_alana_y_indirim: source ürünlerden yeterli alındıysa, target ürünlere indirim uygula
+      if (campaign.type === "x_alana_y_indirim") {
+        // Check if cart has enough source products
+        const totalSourceQty = sourceProducts.reduce(
+          (sum, pid) => sum + (cartQuantityByProduct[pid] || 0), 0
+        );
+        if (totalSourceQty >= (campaign.source_buy_quantity || 1)) {
+          // Apply discount to target products
+          if (targetProducts.includes(item.productId)) {
+            const disc = item.unitPrice * item.quantity * ((campaign.target_discount_percent || 0) / 100);
+            if (disc > bestDiscount) {
+              bestDiscount = disc;
+              bestCampaignId = campaign.id;
+              bestCampaignName = campaign.name;
+            }
+          }
+          // Also apply to source products if they are also targets (self-referencing)
+          if (targetProducts.length === 0 && sourceProducts.includes(item.productId)) {
+            const disc = item.unitPrice * item.quantity * ((campaign.target_discount_percent || 0) / 100);
+            if (disc > bestDiscount) {
+              bestDiscount = disc;
+              bestCampaignId = campaign.id;
+              bestCampaignName = campaign.name;
+            }
+          }
+        }
+        continue;
+      }
 
       if (!sourceProducts.includes(item.productId)) continue;
 
