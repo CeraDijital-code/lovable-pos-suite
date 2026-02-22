@@ -80,6 +80,9 @@ const ReportsPage = () => {
 
   const logoUrl = settings?.logo_light_url || settings?.logo_dark_url || null;
 
+  // State for cash sessions data (needed for consolidated PDF)
+  const [sessionSalesMap, setSessionSalesMap] = useState<Map<string, SessionSalesData>>(new Map());
+
   const generatePDF = async () => {
     if (!report) return;
     const doc = new jsPDF();
@@ -215,6 +218,113 @@ const ReportsPage = () => {
     doc.save(filename);
   };
 
+  const generateCashSessionsPDF = async () => {
+    if (cashSessions.length === 0) return;
+    const doc = new jsPDF("landscape");
+    await ensureTurkishFonts(doc);
+
+    const storeName = settings?.store_name || "TekelPOS";
+    const monthLabel = format(selectedDate, "MMMM yyyy", { locale: tr });
+    const fmtMoney = (n: number) => `${currency}${n.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}`;
+
+    let y = await drawPdfHeader({
+      doc, storeName, subtitle: "Kasa Oturumları Raporu", dateLabel: monthLabel, logoUrl,
+    });
+
+    const tbl = getTableStyles();
+
+    // Aggregate totals
+    let totalCashAll = 0, totalCardAll = 0, totalRevenueAll = 0, totalSalesAll = 0, totalDiffAll = 0;
+    let diffCount = 0;
+    for (const s of cashSessions) {
+      const sd = sessionSalesMap.get(s.id);
+      if (sd) {
+        totalCashAll += sd.cashTotal;
+        totalCardAll += sd.cardTotal;
+        totalRevenueAll += sd.totalRevenue;
+        totalSalesAll += sd.saleCount;
+        if (s.closing_amount != null) {
+          totalDiffAll += sd.cashDiff;
+          diffCount++;
+        }
+      }
+    }
+
+    y = drawStatBoxes(doc, y, [
+      { label: "Toplam Oturum", value: cashSessions.length.toString(), color: [245, 158, 11] },
+      { label: "Toplam Ciro", value: fmtMoney(totalRevenueAll), color: [34, 197, 94] },
+      { label: "Toplam Nakit", value: fmtMoney(totalCashAll), color: [59, 130, 246] },
+      { label: "Toplam Kart", value: fmtMoney(totalCardAll), color: [139, 92, 246] },
+    ]);
+
+    // Sessions table
+    doc.setFont("Roboto", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text("KASA OTURUMLARI DETAYI", 14, y);
+    y += 4;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Tarih", "Personel", "Açılış", "Açılış ₺", "Kapanış", "Satış", "Nakit", "Kart", "Ciro", "Beklenen Nakit", "Kapanış Kasası", "Fark", "Durum"]],
+      body: cashSessions.map((s) => {
+        const openDate = new Date(s.opened_at);
+        const closeDate = s.closed_at ? new Date(s.closed_at) : null;
+        const sd = sessionSalesMap.get(s.id);
+        const expectedCash = Number(s.opening_amount) + (sd?.cashTotal || 0);
+        return [
+          format(openDate, "dd.MM.yyyy"),
+          profileMap.get(s.opened_by) || "Bilinmeyen",
+          format(openDate, "HH:mm"),
+          fmtMoney(Number(s.opening_amount)),
+          closeDate ? format(closeDate, "HH:mm") : "—",
+          sd?.saleCount?.toString() || "0",
+          sd ? fmtMoney(sd.cashTotal) : "—",
+          sd ? fmtMoney(sd.cardTotal) : "—",
+          sd ? fmtMoney(sd.totalRevenue) : "—",
+          fmtMoney(expectedCash),
+          s.closing_amount != null ? fmtMoney(Number(s.closing_amount)) : "—",
+          sd && s.closing_amount != null ? `${sd.cashDiff >= 0 ? "+" : ""}${fmtMoney(sd.cashDiff)}` : "—",
+          s.status === "open" ? "Açık" : "Kapalı",
+        ];
+      }),
+      ...tbl,
+      styles: { ...tbl.styles, fontSize: 7 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Summary
+    if (y > 160) { doc.addPage(); y = 20; }
+    doc.setFont("Roboto", "bold");
+    doc.setFontSize(10);
+    doc.text("GENEL ÖZET", 14, y);
+    y += 4;
+    autoTable(doc, {
+      startY: y,
+      head: [["Metrik", "Değer"]],
+      body: [
+        ["Toplam Oturum", cashSessions.length.toString()],
+        ["Toplam Satış Adedi", totalSalesAll.toString()],
+        ["Toplam Ciro", fmtMoney(totalRevenueAll)],
+        ["Toplam Nakit Satış", fmtMoney(totalCashAll)],
+        ["Toplam Kart Satış", fmtMoney(totalCardAll)],
+        ...(diffCount > 0 ? [["Toplam Kasa Farkı", `${totalDiffAll >= 0 ? "+" : ""}${fmtMoney(totalDiffAll)}`]] : []),
+      ],
+      ...tbl,
+    });
+
+    drawPdfFooter(doc, storeName, "Kasa Oturumları Raporu");
+    doc.save(`kasa-raporu-${format(selectedDate, "yyyy-MM")}.pdf`);
+  };
+
+  const handleDownload = () => {
+    if (period === "cash-sessions") {
+      generateCashSessionsPDF();
+    } else {
+      generatePDF();
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -243,9 +353,13 @@ const ReportsPage = () => {
                 />
               </PopoverContent>
             </Popover>
-            <Button onClick={generatePDF} disabled={isLoading || !report} className="gap-2">
+            <Button
+              onClick={handleDownload}
+              disabled={period === "cash-sessions" ? (sessionsLoading || cashSessions.length === 0) : (isLoading || !report)}
+              className="gap-2"
+            >
               <Download className="h-4 w-4" />
-              {period === "monthly" ? "Ay Sonu Raporu" : "Gün Sonu Raporu"}
+              {period === "cash-sessions" ? "Kasa Raporu" : period === "monthly" ? "Ay Sonu Raporu" : "Gün Sonu Raporu"}
             </Button>
           </div>
         </div>
@@ -351,6 +465,7 @@ const ReportsPage = () => {
               selectedDate={selectedDate}
               storeName={settings?.store_name || "TekelPOS"}
               logoUrl={logoUrl}
+              onSessionSalesUpdate={setSessionSalesMap}
             />
           </TabsContent>
         </Tabs>
@@ -654,6 +769,7 @@ function CashSessionsReport({
   selectedDate,
   storeName,
   logoUrl,
+  onSessionSalesUpdate,
 }: {
   sessions: CashSession[];
   isLoading: boolean;
@@ -662,6 +778,7 @@ function CashSessionsReport({
   selectedDate: Date;
   storeName: string;
   logoUrl?: string | null;
+  onSessionSalesUpdate?: (map: Map<string, SessionSalesData>) => void;
 }) {
   const [sessionSales, setSessionSales] = useState<Map<string, SessionSalesData>>(new Map());
 
@@ -700,6 +817,7 @@ function CashSessionsReport({
         map.set(session.id, { totalRevenue, cashTotal, cardTotal, mixedTotal, saleCount: rows.length, cashDiff });
       }
       setSessionSales(map);
+      onSessionSalesUpdate?.(map);
     };
     fetchAll();
   }, [sessions]);
@@ -784,6 +902,71 @@ function CashSessionsReport({
         body: salesRows,
         ...tbl,
       });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Fetch detailed sales for this session
+    const startTime = session.opened_at;
+    const endTime = session.closed_at || new Date().toISOString();
+    const { data: detailedSales } = await supabase
+      .from("sales")
+      .select(`
+        sale_number, total, payment_method, created_at, created_by, discount,
+        sale_items(product_name, quantity, unit_price, discount, total)
+      `)
+      .gte("created_at", startTime)
+      .lte("created_at", endTime)
+      .order("created_at", { ascending: true });
+
+    if (detailedSales && detailedSales.length > 0) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      doc.text("SATIŞ DETAYLARI", 14, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["#", "Saat", "Personel", "Ödeme", "İndirim", "Toplam"]],
+        body: detailedSales.map((s: any) => [
+          `#${s.sale_number}`,
+          format(new Date(s.created_at), "HH:mm"),
+          profileMap.get(s.created_by) || "?",
+          s.payment_method === "cash" ? "Nakit" : s.payment_method === "card" ? "Kart" : "Karma",
+          fmtMoney(Number(s.discount)),
+          fmtMoney(Number(s.total)),
+        ]),
+        ...tbl,
+        styles: { ...tbl.styles, fontSize: 7 },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+
+      // Product breakdown
+      const prodMap = new Map<string, { quantity: number; revenue: number }>();
+      for (const sale of detailedSales) {
+        for (const item of (sale as any).sale_items || []) {
+          const existing = prodMap.get(item.product_name) || { quantity: 0, revenue: 0 };
+          existing.quantity += item.quantity;
+          existing.revenue += Number(item.total);
+          prodMap.set(item.product_name, existing);
+        }
+      }
+      if (prodMap.size > 0) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        doc.setFont("Roboto", "bold");
+        doc.setFontSize(10);
+        doc.text("ÜRÜN BAZLI ÖZET", 14, y);
+        y += 4;
+        const sorted = Array.from(prodMap.entries()).sort((a, b) => b[1].revenue - a[1].revenue);
+        autoTable(doc, {
+          startY: y,
+          head: [["Ürün", "Adet", "Ciro"]],
+          body: sorted.map(([name, d]) => [name, d.quantity.toString(), fmtMoney(d.revenue)]),
+          ...tbl,
+          styles: { ...tbl.styles, fontSize: 7 },
+        });
+      }
     }
 
     drawPdfFooter(doc, storeName, "Kasa Faaliyet Raporu");
