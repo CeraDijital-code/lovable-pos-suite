@@ -340,6 +340,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          kdv_rate: number
           min_stock: number
           name: string
           price: number
@@ -356,6 +357,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          kdv_rate?: number
           min_stock?: number
           name: string
           price?: number
@@ -372,6 +374,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          kdv_rate?: number
           min_stock?: number
           name?: string
           price?: number
