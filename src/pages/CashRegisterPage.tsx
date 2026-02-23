@@ -58,6 +58,7 @@ import {
   type LoyaltyCustomer,
 } from "@/hooks/useLoyalty";
 import { useThemeLogo } from "@/hooks/useThemeLogo";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -177,7 +178,7 @@ function applyCampaigns(
 const fmt = (n: number) =>
   n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const POINTS_PER_TL_REDEEM = 100; // 100 puan = 1 TL
+
 
 const CashRegisterPage = () => {
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -229,6 +230,8 @@ const CashRegisterPage = () => {
   const completeSale = useCompleteSale();
   const { profile } = useAuth();
   const { logoUrl } = useThemeLogo();
+  const { data: storeSettings } = useStoreSettings();
+  const pointValueTl = storeSettings?.point_value_tl || 0.01;
 
   // Loyalty hooks
   const { data: loyaltySearchResults = [] } = useLoyaltyCustomers(
@@ -510,11 +513,11 @@ const CashRegisterPage = () => {
             redeemPoints.mutate({
               customerId: loyaltyCustomer.id,
               points: pts,
-              description: `Kasada puan harcama - ${pts} puan = ₺${fmt(pts / POINTS_PER_TL_REDEEM)}`,
+              description: `Kasada puan harcama - ${pts} puan = ₺${fmt(pts * pointValueTl)}`,
             });
             setOtpModal(false);
             // Apply discount to cart
-            const discountAmount = pts / POINTS_PER_TL_REDEEM;
+            const discountAmount = pts * pointValueTl;
             setCart((prev) => {
               const currentTotal = prev.reduce((s, i) => s + i.unitPrice * i.quantity - i.discount, 0);
               const updated = prev.map((item) => {
@@ -1554,7 +1557,7 @@ const CashRegisterPage = () => {
               />
               {pointsToRedeem && parseInt(pointsToRedeem) > 0 && (
                 <p className="text-xs text-muted-foreground text-center mt-1">
-                  = ₺{fmt(parseInt(pointsToRedeem) / POINTS_PER_TL_REDEEM)} indirim
+                  = ₺{fmt(parseInt(pointsToRedeem) * pointValueTl)} indirim
                 </p>
               )}
             </div>
