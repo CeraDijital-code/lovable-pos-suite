@@ -14,6 +14,7 @@ export interface CartItem {
   campaignId?: string | null;
   campaignName?: string | null;
   total: number;
+  taxDepartmentId: number;
 }
 
 export function useCompleteSale() {

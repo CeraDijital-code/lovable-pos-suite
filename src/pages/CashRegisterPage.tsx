@@ -59,6 +59,7 @@ import {
 } from "@/hooks/useLoyalty";
 import { useThemeLogo } from "@/hooks/useThemeLogo";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { getTaxDepartmentId, buildBridgePayload } from "@/config/taxDepartments";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -290,6 +291,10 @@ const CashRegisterPage = () => {
               campaignId: null,
               campaignName: null,
               total: product.price * qty,
+              taxDepartmentId: getTaxDepartmentId(
+                product.categories?.name,
+                product.kdv_rate ?? 20
+              ),
             },
           ];
         }

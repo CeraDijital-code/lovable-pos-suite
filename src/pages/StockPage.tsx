@@ -42,7 +42,7 @@ const StockPage = () => {
   // Form state
   const [form, setForm] = useState({
     barcode: "", name: "", category_id: "", price: "", cost_price: "",
-    stock: "", min_stock: "", unit: "Adet", image_url: "",
+    stock: "", min_stock: "", unit: "Adet", image_url: "", kdv_rate: "20",
   });
   const [stockForm, setStockForm] = useState({ quantity: "", note: "" });
   const [newCategory, setNewCategory] = useState("");
@@ -78,7 +78,7 @@ const StockPage = () => {
   const deleteCategory = useDeleteCategory();
 
   const resetForm = () => {
-    setForm({ barcode: "", name: "", category_id: "", price: "", cost_price: "", stock: "", min_stock: "", unit: "Adet", image_url: "" });
+    setForm({ barcode: "", name: "", category_id: "", price: "", cost_price: "", stock: "", min_stock: "", unit: "Adet", image_url: "", kdv_rate: "20" });
     setImageFile(null);
     setImagePreview(null);
   };
@@ -99,6 +99,7 @@ const StockPage = () => {
         stock: parseInt(form.stock) || 0,
         min_stock: parseInt(form.min_stock) || 0,
         unit: form.unit,
+        kdv_rate: parseFloat(form.kdv_rate) || 20,
         ...(image_url ? { image_url } : {}),
       } as any, {
         onSuccess: () => { setShowAddProduct(false); resetForm(); },
@@ -125,6 +126,7 @@ const StockPage = () => {
         cost_price: parseFloat(form.cost_price) || 0,
         min_stock: parseInt(form.min_stock) || 0,
         unit: form.unit,
+        kdv_rate: parseFloat(form.kdv_rate) || 20,
         ...(image_url !== undefined ? { image_url } : {}),
       } as any, {
         onSuccess: () => { setShowEditProduct(false); setSelectedProduct(null); resetForm(); },
@@ -158,6 +160,7 @@ const StockPage = () => {
       min_stock: String(product.min_stock),
       unit: product.unit,
       image_url: product.image_url || "",
+      kdv_rate: String(product.kdv_rate ?? 20),
     });
     setImagePreview(product.image_url || null);
     setImageFile(null);
@@ -281,6 +284,7 @@ const StockPage = () => {
                     <TableHead>Ürün Adı</TableHead>
                     <TableHead>Kategori</TableHead>
                     <TableHead className="text-right">Fiyat</TableHead>
+                    <TableHead className="text-center">KDV</TableHead>
                     <TableHead className="text-right">Stok</TableHead>
                      <TableHead>Durum</TableHead>
                      <TableHead className="text-center">Carousel</TableHead>
@@ -305,6 +309,9 @@ const StockPage = () => {
                         <Badge variant="secondary">{product.categories?.name || "-"}</Badge>
                       </TableCell>
                       <TableCell className="text-right">₺{Number(product.price).toLocaleString("tr-TR")}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-xs">%{product.kdv_rate ?? 20}</Badge>
+                      </TableCell>
                       <TableCell className="text-right font-mono">{product.stock}</TableCell>
                       <TableCell>
                         {product.stock <= product.min_stock ? (
@@ -406,9 +413,22 @@ const StockPage = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label>KDV Oranı (%)</Label>
+                <Select value={form.kdv_rate} onValueChange={(v) => setForm({ ...form, kdv_rate: v })}>
+                  <SelectTrigger><SelectValue placeholder="KDV Seçin" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">%1 - Gıda</SelectItem>
+                    <SelectItem value="10">%10 - İçecek / Temel İhtiyaç</SelectItem>
+                    <SelectItem value="20">%20 - Alkol / Tütün / Diğer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Başlangıç Stok</Label>
                 <Input type="number" placeholder="0" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Minimum Stok</Label>
                 <Input type="number" placeholder="0" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
@@ -498,9 +518,22 @@ const StockPage = () => {
                 <Input type="number" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Minimum Stok</Label>
-              <Input type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>KDV Oranı (%)</Label>
+                <Select value={form.kdv_rate} onValueChange={(v) => setForm({ ...form, kdv_rate: v })}>
+                  <SelectTrigger><SelectValue placeholder="KDV Seçin" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">%1 - Gıda</SelectItem>
+                    <SelectItem value="10">%10 - İçecek / Temel İhtiyaç</SelectItem>
+                    <SelectItem value="20">%20 - Alkol / Tütün / Diğer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum Stok</Label>
+                <Input type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
+              </div>
             </div>
             {/* Image Upload */}
             <div className="space-y-2">

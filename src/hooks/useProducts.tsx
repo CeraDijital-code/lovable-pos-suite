@@ -15,6 +15,7 @@ export interface Product {
   is_active: boolean;
   image_url: string | null;
   show_in_carousel: boolean;
+  kdv_rate: number;
   created_at: string;
   updated_at: string;
   categories?: { id: string; name: string } | null;
