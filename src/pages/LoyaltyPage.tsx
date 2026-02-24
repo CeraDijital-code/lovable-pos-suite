@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStoreSettings, useUpdateStoreSettings } from "@/hooks/useStoreSettings";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ function QRCodeSVG({ value, size = 160 }: { value: string; size?: number }) {
 }
 
 const LoyaltyPage = () => {
+  const navigate = useNavigate();
   const [customerSearch, setCustomerSearch] = useState("");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -378,6 +380,17 @@ const LoyaltyPage = () => {
                           }}
                         >
                           <QrCode className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/sadakat/musteri/${c.id}`);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
                         </Button>
                       </CardContent>
                     </Card>
