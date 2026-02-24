@@ -24,6 +24,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
   ArrowLeft,
   ArrowUpRight,
   ArrowDownRight,
@@ -38,6 +47,8 @@ import {
   TrendingUp,
   Award,
   CreditCard,
+  Eye,
+  X,
 } from "lucide-react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useLoyaltyTransactions, type LoyaltyCustomer, type LoyaltyTransaction } from "@/hooks/useLoyalty";
@@ -94,7 +105,7 @@ const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: storeSettings } = useStoreSettings();
-
+  const [drawerSaleId, setDrawerSaleId] = useState<string | null>(null);
   // Fetch customer
   const { data: customer, isLoading: customerLoading } = useQuery({
     queryKey: ["loyalty-customer", id],
@@ -163,6 +174,9 @@ const CustomerDetailPage = () => {
 
   const totalEarned = transactions.filter(t => t.type === "earn").reduce((s, t) => s + t.points, 0);
   const totalRedeemed = transactions.filter(t => t.type === "redeem").reduce((s, t) => s + t.points, 0);
+
+  // Fetch sale details for drawer
+  const drawerSale = sales.find(s => s.id === drawerSaleId);
 
   if (customerLoading) {
     return (
@@ -323,7 +337,13 @@ const CustomerDetailPage = () => {
                         </TableHeader>
                         <TableBody>
                           {transactions.map((t) => (
-                            <TableRow key={t.id}>
+                            <TableRow
+                              key={t.id}
+                              className={t.type === "redeem" && t.sale_id ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
+                              onClick={() => {
+                                if (t.type === "redeem" && t.sale_id) setDrawerSaleId(t.sale_id);
+                              }}
+                            >
                               <TableCell className="text-xs whitespace-nowrap">
                                 {formatDate(t.created_at)}
                               </TableCell>
@@ -342,6 +362,11 @@ const CustomerDetailPage = () => {
                               <TableCell className={`text-right font-bold text-sm ${t.type === "earn" ? "text-emerald-500" : "text-red-500"}`}>
                                 {t.type === "earn" ? "+" : "-"}{t.points}
                               </TableCell>
+                              {t.type === "redeem" && t.sale_id && (
+                                <TableCell className="w-8 p-0">
+                                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                </TableCell>
+                              )}
                             </TableRow>
                           ))}
                         </TableBody>
@@ -472,6 +497,86 @@ const CustomerDetailPage = () => {
             </Tabs>
           </div>
         </div>
+        {/* Sale detail drawer for redeem transactions */}
+        <Drawer open={!!drawerSaleId} onOpenChange={(open) => { if (!open) setDrawerSaleId(null); }}>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader className="border-b pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DrawerTitle className="flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    Sepet Detayı
+                  </DrawerTitle>
+                  <DrawerDescription>
+                    {drawerSale ? `Fiş #${drawerSale.sale_number} • ${formatDate(drawerSale.created_at)}` : ""}
+                  </DrawerDescription>
+                </div>
+              </div>
+            </DrawerHeader>
+
+            {drawerSale ? (
+              <div className="p-4 space-y-4 overflow-y-auto">
+                {/* Items */}
+                <div className="space-y-2">
+                  {drawerSale.items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.product_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity} x ₺{fmt(Number(item.unit_price))}
+                        </p>
+                      </div>
+                      <div className="text-right ml-3">
+                        <p className="text-sm font-semibold">₺{fmt(Number(item.total))}</p>
+                        {Number(item.discount) > 0 && (
+                          <p className="text-[10px] text-destructive">-₺{fmt(Number(item.discount))}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
+                {/* Summary */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ödeme Yöntemi</span>
+                    <Badge variant="outline">{paymentLabel(drawerSale.payment_method)}</Badge>
+                  </div>
+                  {Number(drawerSale.discount) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">İndirim</span>
+                      <span className="text-destructive font-medium">-₺{fmt(Number(drawerSale.discount))}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base border-t pt-2">
+                    <span>Toplam</span>
+                    <span>₺{fmt(Number(drawerSale.total))}</span>
+                  </div>
+                  {(drawerSale.points_earned > 0 || drawerSale.points_redeemed > 0) && (
+                    <div className="flex gap-3 justify-end text-xs pt-1">
+                      {drawerSale.points_earned > 0 && (
+                        <span className="text-emerald-500">+{drawerSale.points_earned} puan kazanıldı</span>
+                      )}
+                      {drawerSale.points_redeemed > 0 && (
+                        <span className="text-destructive">-{drawerSale.points_redeemed} puan harcandı</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-muted-foreground text-sm">Satış bilgisi bulunamadı</div>
+            )}
+
+            <DrawerFooter className="border-t">
+              <DrawerClose asChild>
+                <Button variant="outline" className="w-full">Kapat</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
       </div>
     </div>
   );
