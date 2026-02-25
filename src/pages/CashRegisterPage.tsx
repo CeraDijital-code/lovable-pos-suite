@@ -734,12 +734,22 @@ const CashRegisterPage = () => {
                     min={1}
                     max={999}
                     value={quantityMultiplier}
-                    onChange={(e) => setQuantityMultiplier(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                      const val = Math.max(1, parseInt(e.target.value) || 1);
+                      setQuantityMultiplier(val);
+                    }}
                     onFocus={(e) => e.target.select()}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
                         barcodeRef.current?.focus();
+                        return;
+                      }
+                      // After typing a digit, auto-focus back to barcode after a short delay
+                      if (/^[0-9]$/.test(e.key)) {
+                        setTimeout(() => {
+                          barcodeRef.current?.focus();
+                        }, 150);
                       }
                     }}
                   />
