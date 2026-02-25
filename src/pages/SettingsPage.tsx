@@ -12,10 +12,89 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Store, Palette, Receipt, Bell, Upload, Save, Loader2,
-  MapPin, Phone, Hash, Building2, X, Image, CheckCircle2
+  MapPin, Phone, Hash, Building2, X, Image, CheckCircle2,
+  Monitor, Smartphone, Tablet, Tv,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useThemeLogo } from "@/hooks/useThemeLogo";
+
+const PREVIEW_DEVICES = [
+  { id: "mobile", label: "Telefon", icon: Smartphone, width: 375, height: 667, scale: 0.45 },
+  { id: "tablet", label: "Tablet", icon: Tablet, width: 768, height: 1024, scale: 0.35 },
+  { id: "desktop", label: "Monitör", icon: Monitor, width: 1920, height: 1080, scale: 0.28 },
+  { id: "tv", label: "TV / Büyük Ekran", icon: Tv, width: 3840, height: 2160, scale: 0.15 },
+] as const;
+
+const CustomerDisplayPreview = () => {
+  const [activeDevice, setActiveDevice] = useState<string>("desktop");
+  const device = PREVIEW_DEVICES.find((d) => d.id === activeDevice) || PREVIEW_DEVICES[2];
+
+  return (
+    <div className="space-y-5">
+      {/* Device selector */}
+      <div className="flex gap-2 flex-wrap">
+        {PREVIEW_DEVICES.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => setActiveDevice(d.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-medium transition-all ${
+              activeDevice === d.id
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:border-primary/40"
+            }`}
+          >
+            <d.icon className="h-4 w-4" />
+            {d.label}
+            <span className="text-[10px] text-muted-foreground ml-1">
+              {d.width}×{d.height}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Preview frame */}
+      <div className="flex justify-center">
+        <div
+          className="relative rounded-2xl border-2 border-muted-foreground/20 bg-muted/30 overflow-hidden shadow-lg"
+          style={{
+            width: Math.min(device.width * device.scale, 680),
+            height: device.height * device.scale,
+          }}
+        >
+          {/* Device bezel effect */}
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-muted-foreground/10 rounded-t-2xl" />
+          <div className="absolute bottom-0 inset-x-0 h-1.5 bg-muted-foreground/10 rounded-b-2xl" />
+
+          <iframe
+            src="/musteri-ekrani"
+            title={`Müşteri Ekranı - ${device.label}`}
+            className="w-full h-full border-0"
+            style={{
+              width: device.width,
+              height: device.height,
+              transform: `scale(${device.scale})`,
+              transformOrigin: "top left",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="text-center space-y-1">
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{device.label}</span> görünümü ({device.width}×{device.height}px)
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          Müşteri ekranını tam boyutlu görmek için{" "}
+          <a href="/musteri-ekrani" target="_blank" className="text-primary underline hover:no-underline">
+            yeni sekmede açın
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const SettingsPage = () => {
   const { data: settings, isLoading } = useStoreSettings();
@@ -159,7 +238,7 @@ const SettingsPage = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="store" className="space-y-6">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="store" className="gap-1.5 text-xs sm:text-sm">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Mağaza</span>
@@ -171,6 +250,10 @@ const SettingsPage = () => {
             <TabsTrigger value="receipt" className="gap-1.5 text-xs sm:text-sm">
               <Receipt className="h-4 w-4" />
               <span className="hidden sm:inline">Fiş</span>
+            </TabsTrigger>
+            <TabsTrigger value="display" className="gap-1.5 text-xs sm:text-sm">
+              <Monitor className="h-4 w-4" />
+              <span className="hidden sm:inline">Ekran</span>
             </TabsTrigger>
             <TabsTrigger value="system" className="gap-1.5 text-xs sm:text-sm">
               <Bell className="h-4 w-4" />
@@ -439,6 +522,22 @@ const SettingsPage = () => {
                     {savingReceipt ? "Kaydediliyor..." : "Kaydet"}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Customer Display Preview */}
+          <TabsContent value="display">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-primary" />
+                  Müşteri Ekranı Önizleme
+                </CardTitle>
+                <CardDescription>Müşteri ekranının farklı cihazlarda nasıl görüneceğini kontrol edin</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CustomerDisplayPreview />
               </CardContent>
             </Card>
           </TabsContent>
